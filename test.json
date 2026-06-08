@@ -1,0 +1,8 @@
+{
+  "dtn://node1.dtn/": { "name": "node1", "cla_addr": null },
+  "dtn://node2.dtn/": { "name": "node2", "cla_addr": "mtcp:127.0.0.1:4225" },
+  "dtn://node3.dtn/": { "name": "node3", "cla_addr": null },
+  "dtn://node4.dtn/": { "name": "node4", "cla_addr": null },
+  "dtn://node5.dtn/": { "name": "node5", "cla_addr": null },
+  "dtn://node6.dtn/": { "name": "node6", "cla_addr": null }
+}
