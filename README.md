@@ -155,6 +155,7 @@ sudo ldconfig
 ```bash
 git clone https://github.com/hugoponthieu/hardy.git
 cargo build --release
+cargo build --release -p hardy-bpa-server --all-features
 ```
 
 # Charon

@@ -1,0 +1,8 @@
+# Hardy (Node2) static routes — loaded by hardy-tvr.
+#
+# Toward alice/unibo: next hop is unibo (CSP addr 1, or TCPCLv4 peer).
+# Toward bob:         next hop is bob   (CSP addr 3, or TCPCLv4 peer).
+
+dtn://alice.dtn/* via dtn://unibo.dtn/ priority 10 bandwidth 50K
+dtn://unibo.dtn/* via dtn://unibo.dtn/ priority 10 bandwidth 50K
+dtn://bob.dtn/*   via dtn://bob.dtn/   priority 10 bandwidth 50K

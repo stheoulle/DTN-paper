@@ -1,0 +1,27 @@
+node-ids: "dtn://hardy.dtn/"
+log-level: info
+
+grpc:
+  address: "[::1]:50051"
+  services:
+    - application
+    - cla
+    - service
+
+storage:
+  metadata:
+    type: memory
+  bundle:
+    type: memory
+
+# NOTE: The built hardy/ uses TCPCLv4. For the full CAN pipeline, replace
+# this with the hugoponthieu/hardy fork (feat/cspcl-v2) and use:
+#   type: cspcl
+#   csp-addr: 2
+#   interface: can
+#   can-device: vcan0
+clas:
+  - name: tcpclv4-unibo
+    type: tcpclv4
+    address: "[::]:4556"
+    require-tls: false

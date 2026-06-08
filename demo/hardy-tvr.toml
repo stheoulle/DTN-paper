@@ -1,0 +1,2 @@
+bpa-address   = "http://[::1]:50051"
+contact-plan  = "./demo/hardy-routes.txt"

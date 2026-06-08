@@ -1,0 +1,6 @@
+{
+    "dtn://bob.dtn/":   {"name": "bob",   "cla_addr": null},
+    "dtn://hardy.dtn/": {"name": "hardy", "cla_addr": "csp:2"},
+    "dtn://unibo.dtn/": {"name": "unibo", "cla_addr": null},
+    "dtn://alice.dtn/": {"name": "alice", "cla_addr": null}
+}
