@@ -115,3 +115,55 @@ It should also display the dispatch reason:
 | DISPATCH_REASON_CLA_ENQUEUE_FAILED | 3 | The CLA subsystem responded negatively to the next-hop TX request or no applicable CLA and link could be determined for the given fragment. |
 | DISPATCH_REASON_TX_FAILED | 4 | The transmission was attempted by the CLA, but failed. |
 | DISPATCH_REASON_TX_SUCCEEDED | 5 | The CLA transmission succeeded (this is an information to the BDM). Note that this may concern the whole bundle (if determined to be sent completely), or just a single fragment. |
+
+# Libcsp
+
+```bash
+cd libcsp
+python3.11 waf configure --enable-can-socketcan --enable-if-zmqhub
+python3.11 waf build
+```
+
+# CSPCL build from source
+
+```bash
+git clone https://github.com/dtn-mtp/cspcl.git
+git checkout feat/improve-rust-bindings
+cd cspcl
+git apply ../cspcl/pool.patch   # if not already applied
+cd build
+cmake -DCSP_REPO_DIR=../../libcsp/ .. && make
+ctest --verbose
+```
+
+# Unibo
+
+```bash
+mkdir unibo-dtn
+cd unibo-dtn
+git clone https://gitlab.com/unibo-dtn/unibo-cgr.git
+git clone --recursive https://gitlab.com/unibo-dtn/unibo-bp.git
+cd unibo-bp
+make init WITH_QUICCL=1
+make
+sudo make install
+sudo ldconfig
+```
+
+# Hardy
+
+```bash
+git clone https://github.com/hugoponthieu/hardy.git
+cargo build --release
+```
+
+# Charon
+
+```bash
+# Dependencies: protobuf-c-compiler libprotobuf-c-dev
+cd charon
+make proto   # regenerates src/proto/aap2.pb-c.{c,h} from proto/aap2.proto
+mkdir build
+make
+# binary: build/charon
+```
