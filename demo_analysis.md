@@ -29,3 +29,20 @@ charon-bob injects the packet into tun1 → receiver at 10.0.0.2 gets it
 In your current single-machine setup, the OS short-circuits step 1 entirely, so none of the transport issues (hardy frame rejection, dispatch reason 5/3 drops) have any impact on the sender/receiver test.
 
 The 1000-message test is therefore not a valid validation of the end-to-end DTN path — it only proves TCP works locally.
+
+-------------
+Hardy's cspcl CLA wraps every CSP packet in its own custom envelope before the bundle data. Unibo's cspcl sends raw BP7 bundles with no envelope at all.
+
+Hardy expects (hardy/cspcl/src/frame.rs):
+
+
+[0x01 = version] [type byte] [payload...]
+It checks if input[0] != VERSION (VERSION = 1) and rejects anything else.
+
+Unibo sends (cspcl/src/cspcl.c):
+
+
+[0x9F ...] ← raw BP7 bundle, CBOR indefinite-length array marker
+No version byte, no type byte — just the raw bundle directly over CSP SFP.
+
+So hardy reads the first byte of the CBOR bundle 0x9F = 159 decimal as the version field → "unsupported frame version 159".

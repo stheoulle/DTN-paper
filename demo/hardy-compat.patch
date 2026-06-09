@@ -1,0 +1,102 @@
+--- a/src/cspcl.c
++++ b/src/cspcl.c
+@@ -18,6 +18,14 @@
+ #include <time.h>
+ #endif
+ 
++/* Hardy CSPCL frame compatibility (demo only -- not part of regular cspcl) */
++#define HARDY_FRAME_VERSION    ((uint8_t)0x01)
++#define HARDY_FRAME_BUNDLE     ((uint8_t)0x01)
++#define HARDY_FRAME_HEARTBEAT  ((uint8_t)0x02)
++#define HARDY_FRAME_HB_ACK     ((uint8_t)0x03)
++#define HARDY_FRAME_BUNDLE_ACK ((uint8_t)0x04)
++#define HARDY_FRAME_HEADER_LEN 10u  /* 1 version + 1 type + 8-byte bundle-id */
++
+ /* CSP library headers */
+ #include <csp/arch/csp_malloc.h>
+ #include <csp/csp.h>
+@@ -374,9 +382,26 @@
+     return CSPCL_ERR_CONNECTION;
+   }
+ 
+-  /* Use CSP's SFP to send the bundle with automatic fragmentation */
+-  int ret = csp_sfp_send(conn, bundle, (unsigned int)len, CSPCL_MAX_PAYLOAD,
+-                         CSPCL_CSP_TIMEOUT_MS);
++  /* Wrap bundle in Hardy frame: [VERSION][TYPE_BUNDLE][id:8bytes][payload] */
++  static uint64_t hardy_bundle_id = 0;
++  uint64_t bid = hardy_bundle_id++;
++  size_t wrapped_len = HARDY_FRAME_HEADER_LEN + len;
++  uint8_t *wrapped = malloc(wrapped_len);
++  if (!wrapped) {
++    (void)cspcl_pool_unlock(pool);
++    return CSPCL_ERR_NO_MEMORY;
++  }
++  wrapped[0] = HARDY_FRAME_VERSION;
++  wrapped[1] = HARDY_FRAME_BUNDLE;
++  wrapped[2] = (uint8_t)(bid >> 56); wrapped[3] = (uint8_t)(bid >> 48);
++  wrapped[4] = (uint8_t)(bid >> 40); wrapped[5] = (uint8_t)(bid >> 32);
++  wrapped[6] = (uint8_t)(bid >> 24); wrapped[7] = (uint8_t)(bid >> 16);
++  wrapped[8] = (uint8_t)(bid >>  8); wrapped[9] = (uint8_t)(bid      );
++  memcpy(wrapped + HARDY_FRAME_HEADER_LEN, bundle, len);
++
++  int ret = csp_sfp_send(conn, wrapped, (unsigned int)wrapped_len,
++                         CSPCL_MAX_PAYLOAD, CSPCL_CSP_TIMEOUT_MS);
++  free(wrapped);
+ 
+   if (ret != CSP_ERR_NONE) {
+     cspcl_pool_invalidate_locked(pool, dest_addr, dest_port);
+@@ -501,15 +526,51 @@
+     return CSPCL_ERR_CSP_RECV;
+   }
+ 
++  /* Unwrap Hardy frame if present */
++  const uint8_t *payload = (const uint8_t *)data;
++  size_t payload_len = (size_t)datasize;
++
++  if (payload_len >= 2 && payload[0] == HARDY_FRAME_VERSION) {
++    switch (payload[1]) {
++    case HARDY_FRAME_HEARTBEAT: {
++      /* Respond with HeartbeatAck, then signal caller to retry */
++      csp_free(data);
++      uint8_t hb_ack[2] = { HARDY_FRAME_VERSION, HARDY_FRAME_HB_ACK };
++      csp_conn_t *ac = csp_connect(CSP_PRIO_NORM, pkt_src_addr,
++                                    cspcl->csp_port, CSPCL_CSP_TIMEOUT_MS,
++                                    CSP_O_NONE);
++      if (ac) {
++        csp_sfp_send(ac, hb_ack, sizeof(hb_ack), CSPCL_MAX_PAYLOAD,
++                     CSPCL_CSP_TIMEOUT_MS);
++        csp_close(ac);
++      }
++      return CSPCL_ERR_TIMEOUT;
++    }
++    case HARDY_FRAME_HB_ACK:
++    case HARDY_FRAME_BUNDLE_ACK:
++      /* Not a data bundle -- signal caller to retry */
++      csp_free(data);
++      return CSPCL_ERR_TIMEOUT;
++    case HARDY_FRAME_BUNDLE:
++      if (payload_len >= HARDY_FRAME_HEADER_LEN) {
++        payload     += HARDY_FRAME_HEADER_LEN;
++        payload_len -= HARDY_FRAME_HEADER_LEN;
++      }
++      break;
++    default:
++      break;
++    }
++  }
++
+   /* Check if bundle fits in output buffer */
+-  if ((size_t)datasize > max_len) {
++  if (payload_len > max_len) {
+     csp_free(data);
+     return CSPCL_ERR_NO_MEMORY;
+   }
+ 
+   /* Copy received bundle to output buffer */
+-  memcpy(bundle, data, (size_t)datasize);
+-  *len = (size_t)datasize;
++  memcpy(bundle, payload, payload_len);
++  *len = payload_len;
+ 
+   if (src_addr != NULL) {
+     *src_addr = pkt_src_addr;

@@ -148,12 +148,44 @@ $UNIBO_BP_BIN/unibo-bp-admin tcpcl induct add --port 4225
 
 ### T4 — Node1: Unibo CSPCL daemon (CAN bridge toward Hardy)
 
+Apply the Hardy frame compatibility patch and rebuild before running.
+This patch wraps outgoing bundles with Hardy's custom frame header and
+unwraps incoming ones — it lives in the repo and does not touch the
+upstream cspcl source permanently.
+
 ```bash
+# Apply patch (idempotent: skip if already applied)
+patch -p1 -d cspcl < demo/hardy-compat.patch
+
+# Rebuild the unibo-bp-cspcl binary
+export DTN_ROOT=$(git rev-parse --show-toplevel)
+export UNIBO_BP_LIB=$DTN_ROOT/unibo-dtn/unibo-bp/build/Unibo-BP/lib
+export LIBCSP_BUILD=$DTN_ROOT/libcsp/build
+
+cd cspcl/unibo-integration
+mkdir -p build
+gcc -O2 -Wall -Wextra \
+  src/cspcl_daemon.c ../src/cspcl.c \
+  -o build/unibo-bp-cspcl \
+  -I../src \
+  -I$DTN_ROOT/unibo-dtn/unibo-bp/include \
+  -I$DTN_ROOT/libcsp/include \
+  -I$DTN_ROOT/libcsp/build/include \
+  -L$UNIBO_BP_LIB \
+  -Wl,-rpath,$UNIBO_BP_LIB \
+  -lunibo-bp-api \
+  $LIBCSP_BUILD/libcsp.a \
+  -lzmq -lpthread -lm \
+  -lsocketcan
+cd ../..
+
+# args: <csp_local_addr> <csp_port> <iface> <local_port> <unibo_workdir>
 export UNIBO_BP_LIB=$(git rev-parse --show-toplevel)/unibo-dtn/unibo-bp/build/Unibo-BP/lib
 cd cspcl/unibo-integration
-# args: <csp_local_addr> <csp_port> <iface> <local_port> <unibo_workdir>
 ./build/unibo-bp-cspcl 1 10 can 2001 /tmp/unibo-node1
 ```
+
+> To revert the patch: `patch -p1 -R -d cspcl < demo/hardy-compat.patch`
 
 ### T5 — Node2: Hardy BPA server
 
