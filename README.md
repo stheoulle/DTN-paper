@@ -2,10 +2,6 @@
 
 ```bash
 git clone --depth 1 --recursive https://gitlab.com/d3tn/ud3tn.git
-cd ud3tn
-# ...install dependencies on your system...
-make posix
-cd ..
 ```
 
 ```bash
@@ -16,8 +12,8 @@ source .venv/bin/activate
 
 ```bash
 git clone https://github.com/theotchlx/A-SABR-Python.git
-git checkout feat/asabr-bdm
 cd A-SABR-Python
+git checkout feat/asabr-bdm
 maturin develop
 ```
 
@@ -60,66 +56,20 @@ Because we will launch only 2 BPAs (Nodes 0 and 1) and plug our BDM to Node 0, w
 }
 ```
 
-Still from the demo directory, you will need four terminals : two for running and logging the uD3TN instances of Nodes 0 and 1, one to manually send a bundle, and one to plug our BDM dispatcher to Node 0.
-
-Launch the two BPAs :
-
-Node 0 :
-
-```bash
-cd ud3tn
-./build/posix/ud3tn \
-          -e dtn://node1.dtn/ \
-          -S ./ud3tn.aap2.socket \
-          -s ./ud3tn.socket \
-          -d # for using the BDM.
-```
-
-Node 1 :
-
-```bash
-cd ud3tn
-./build/posix/ud3tn \
-          -e dtn://node2.dtn/ \
-          -S ./ud3tn2.aap2.socket \
-          -s ./ud3tn2.socket \
-          -c "mtcp:*,4225"
-```
-
 **Install the python dependencies defined in pyproject.toml into your venv**, then plug our BDM to Node 0:
 
 ```bash
 cd asabr_bdm
 uv sync --active
-python main.py ../test.cp ../test.json --socket ../ud3tn/ud3tn.aap2.socket -vv
+#python main.py ../test.cp ../test.json --socket ../ud3tn/ud3tn.aap2.socket -vv
 ```
-
-You should see the CLA connection establishment between Node 0 and Node 1, as the BDM registers the contact specified in the CP and EID/CLA map.
-
-Send a bundle from Node 0 to Node 5:
-
-```bash
-cd ud3tn
-python python-ud3tn-utils/ud3tn_utils/aap2/bin/aap2_send.py --socket ud3tn.aap2.socket dtn://node5.dtn "hello from node0"
-```
-
-The BDM should display that the next hop is to Node 1.
-Since there is currently a viable contact and CLA connection, the bundle gets forwarded.
-It should also display the dispatch reason:
-
-| Name | Number | Description |
-|------|--------|-------------|
-| DISPATCH_REASON_UNSPECIFIED | 0 | Invalid. |
-| DISPATCH_REASON_NO_FIB_ENTRY | 1 | No direct-dispatch link was found for the destination EID in the FIB. |
-| DISPATCH_REASON_LINK_INACTIVE | 2 | The link that should be used is currently not active or unusable. |
-| DISPATCH_REASON_CLA_ENQUEUE_FAILED | 3 | The CLA subsystem responded negatively to the next-hop TX request or no applicable CLA and link could be determined for the given fragment. |
-| DISPATCH_REASON_TX_FAILED | 4 | The transmission was attempted by the CLA, but failed. |
-| DISPATCH_REASON_TX_SUCCEEDED | 5 | The CLA transmission succeeded (this is an information to the BDM). Note that this may concern the whole bundle (if determined to be sent completely), or just a single fragment. |
 
 # Libcsp
 
 ```bash
+git clone https://github.com/libcsp/libcsp.git
 cd libcsp
+git checkout v1.6
 python3.11 waf configure --enable-can-socketcan --enable-if-zmqhub
 python3.11 waf build
 ```
@@ -128,12 +78,35 @@ python3.11 waf build
 
 ```bash
 git clone https://github.com/dtn-mtp/cspcl.git
-git checkout feat/improve-rust-bindings
 cd cspcl
-git apply ../cspcl/pool.patch   # if not already applied
-cd build
+git checkout feat/improve-rust-bindings
+mkdir build && cd build
 cmake -DCSP_REPO_DIR=../../libcsp/ .. && make
-ctest --verbose
+cd ../..
+
+export CSPCL_REPO=$(pwd)/cspcl
+export UD3TN_REPO=$(pwd)/ud3tn
+
+# Fix hardcoded paths in the patch before applying
+sed -i "s|/home/mathias/libcsp-src|$(pwd)/libcsp|g" ${CSPCL_REPO}/ud3tn-integration/dev.patch
+
+# Apply the CSPCL integration patch (only on a fresh ud3tn clone)
+cd ${UD3TN_REPO}
+git apply ${CSPCL_REPO}/ud3tn-integration/dev.patch
+
+# Copy CSPCL library files
+mkdir -p external/cspcl
+cp ${CSPCL_REPO}/src/cspcl.c external/cspcl/
+cp ${CSPCL_REPO}/src/cspcl.h external/cspcl/
+cp ${CSPCL_REPO}/src/cspcl_config.h external/cspcl/
+
+
+# Copy CLA_CSP integration files
+cp ${CSPCL_REPO}/ud3tn-integration/src/cla_csp.c components/cla/posix/
+cp ${CSPCL_REPO}/ud3tn-integration/src/cla_csp.h include/cla/
+
+# Build
+make posix
 ```
 
 # Unibo
@@ -148,20 +121,47 @@ make init WITH_QUICCL=1
 make
 sudo make install
 sudo ldconfig
+
+cd ..
+export UNIBO_BP_BIN=$(pwd)/unibo-dtn/unibo-bp/build/Unibo-BP/bin
+export UNIBO_BP_LIB=$(pwd)/unibo-dtn/unibo-bp/build/Unibo-BP/lib
+export LIBCSP_BUILD=$(pwd)/libcsp/build
+
+cd cspcl/unibo-integration && mkdir -p build
+sudo apt install libzmq3-dev
+gcc -O2 -Wall -Wextra \
+  src/cspcl_daemon.c ../src/cspcl.c \
+  -o build/unibo-bp-cspcl \
+  -I../src \
+  -I../../unibo-dtn/unibo-bp/include \
+  -I../../libcsp/include \
+  -I../../libcsp/build/include \
+  -L$UNIBO_BP_LIB -Wl,-rpath,$UNIBO_BP_LIB \
+  -lunibo-bp-api $LIBCSP_BUILD/libcsp.a \
+  -lsocketcan -lpthread -lm \
+  -lzmq
+cd ../..
 ```
 
 # Hardy
 
 ```bash
-git clone https://github.com/hugoponthieu/hardy.git
-cargo build --release
-cargo build --release -p hardy-bpa-server --all-features
+git clone -b feat/cspcl-v2 https://github.com/hugoponthieu/hardy.git 
+cd hardy
+
+# CSP_REPO_DIR and CSP_BUILD_DIR must point at the built libcsp:
+export CSP_REPO_DIR=$(pwd)/../libcsp
+export CSP_BUILD_DIR=$(pwd)/../libcsp/build
+sudo apt install clang libbz2-dev
+cargo build --release -p hardy-bpa-server --features cspcl
+cd ..
 ```
 
 # Charon
 
 ```bash
 # Dependencies: protobuf-c-compiler libprotobuf-c-dev
+git clone https://github.com/DTN-MTP/charon.git
 cd charon
 make proto   # regenerates src/proto/aap2.pb-c.{c,h} from proto/aap2.proto
 mkdir build

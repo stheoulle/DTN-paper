@@ -14,14 +14,17 @@ storage:
   bundle:
     type: memory
 
-# NOTE: The built hardy/ uses TCPCLv4. For the full CAN pipeline, replace
-# this with the hugoponthieu/hardy fork (feat/cspcl-v2) and use:
-#   type: cspcl
-#   csp-addr: 2
-#   interface: can
-#   can-device: vcan0
 clas:
-  - name: tcpclv4-unibo
-    type: tcpclv4
-    address: "[::]:4556"
-    require-tls: false
+  - name: cspcl-can
+    type: cspcl
+    local-addr: 2
+    port: 10
+    interface: can
+    interface-name: vcan0
+    peers:
+      - node-id: "dtn://unibo.dtn/"
+        addr: 1
+        port: 10
+      - node-id: "dtn://bob.dtn/"
+        addr: 3
+        port: 10
