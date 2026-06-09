@@ -1,4 +1,4 @@
-node-ids: "dtn://hardy.dtn/"
+node-ids: ["dtn://hardy.dtn/", "ipn:2.0"]
 log-level: info
 
 grpc:
@@ -13,6 +13,12 @@ storage:
     type: memory
   bundle:
     type: memory
+
+asabr:
+  protocol-id: "asabr"
+  router: "SpsnHybridParenting"
+  contact-plan-path: "demo/alice.cp"
+  local-node-id: "ipn:2.0"
 
 clas:
   - name: cspcl-can

@@ -11,7 +11,7 @@ App1  ──TCP──  Charon(alice)  ──AAP2──  Node0(ud3tn + A-SABR)
                                                │ MTCP :4224
                                         Node1(Unibo + CSPCL)   CSP addr 1
                                                │ CAN / vcan0
-                                        Node2(Hardy + TVR)     CSP addr 2
+                                        Node2(Hardy + A-SABR)  CSP addr 2
                                                │ CAN / vcan0
                                         Node3(ud3tn + CSPCL + A-SABR)  CSP addr 3
                                                │ AAP2
@@ -161,14 +161,7 @@ cd cspcl/unibo-integration
 ./hardy/target/release/hardy-bpa-server --config demo/hardy.yaml
 ```
 
-### T6 — Node2: Hardy TVR routing agent
-
-```bash
-# Run from repo root so hardy-routes.txt path resolves correctly.
-./hardy/target/release/hardy-tvr --config demo/hardy-tvr.toml
-```
-
-### T7 — Node3: bob uD3TN with CSPCL (BDM mode)
+### T6 — Node3: bob uD3TN with CSPCL (BDM mode)
 
 ```bash
 cd ud3tn
@@ -180,7 +173,7 @@ cd ud3tn
   -d
 ```
 
-### T8 — Node3: bob A-SABR BDM
+### T7 — Node3: bob A-SABR BDM
 
 ```bash
 source .venv/bin/activate
@@ -192,14 +185,14 @@ python main.py \
   -vv
 ```
 
-### T9 — Charon alice (needs root for TUN)
+### T8 — Charon alice (needs root for TUN)
 
 ```bash
 export CHARON_SECRET=demo_secret
 sudo -E ./charon/build/charon ./demo/charon-alice.conf
 ```
 
-### T10 — Charon bob (needs root for TUN)
+### T9 — Charon bob (needs root for TUN)
 
 ```bash
 export CHARON_SECRET=demo_secret
@@ -210,19 +203,19 @@ sudo -E ./charon/build/charon ./demo/charon-bob.conf
 
 ## Phase 4 — Send a message
 
-### T11 — App2: start the receiver (bob side)
+### T10 — App2: start the receiver (bob side)
 
 ```bash
 ./apps/receiver 4000
 ```
 
-### T12 — App1: start the sender (alice side)
+### T11 — App1: start the sender (alice side)
 
 ```bash
 ./apps/sender 10.0.0.2 4000
 ```
 
-Traffic path: `sender` → kernel TUN `10.0.0.1` → Charon(alice) bundles to `dtn://bob.dtn/charon` → uD3TN(alice) A-SABR routes next-hop to Unibo → MTCP `:4225` → Unibo → CSPCL `:vcan0` (CSP 1→2) → Hardy → CSPCL `vcan0` (CSP 2→3) → uD3TN(bob) A-SABR delivers → Charon(bob) injects packet into TUN `10.0.0.2` → `receiver`.
+Traffic path: `sender` → kernel TUN `10.0.0.1` → Charon(alice) bundles to `dtn://bob.dtn/charon` → uD3TN(alice) A-SABR routes next-hop to Unibo → TCPCLv3 `:4225` → Unibo → CSPCL `vcan0` (CSP 1→2) → Hardy A-SABR → CSPCL `vcan0` (CSP 2→3) → uD3TN(bob) A-SABR delivers → Charon(bob) injects packet into TUN `10.0.0.2` → `receiver`.
 
 ---
 
@@ -245,6 +238,6 @@ rm -rf /tmp/unibo-node1
 
 **CAN frames not moving** — verify `vcan0` is up (`ip link show vcan0`). Use `candump vcan0` in a spare terminal to watch raw frames.
 
-**Hardy TVR routes not installing** — check that `hardy-bpa-server` is already running before starting `hardy-tvr`, and that the gRPC port `50051` is reachable.
+**Hardy A-SABR fails to initialise** — check that `contact-plan-path` in `demo/hardy.yaml` resolves correctly (run from repo root) and that `local-node-id: "ipn:2.0"` matches a node declared in the contact plan.
 
 **CSPCL-patched uD3TN fails to link** — confirm `libcsp/build/libcsp.a` exists and the sed substitution in Phase 0.3 replaced the hardcoded path correctly (`grep mathias cspcl/ud3tn-integration/ud3tn-cla-csp.patch` should return nothing).
