@@ -7,15 +7,18 @@
 #include <sys/socket.h>
 
 #define DEFAULT_PORT 4000
-#define INTERVAL_MS  1000
+#define INTERVAL_MS 1000
 
-static void die(const char *msg) {
+static void die(const char *msg)
+{
     perror(msg);
     exit(1);
 }
 
-int main(int argc, char *argv[]) {
-    if (argc < 2 || argc > 3) {
+int main(int argc, char *argv[])
+{
+    if (argc < 2 || argc > 3)
+    {
         fprintf(stderr, "usage: %s <remote_ip> [port]\n", argv[0]);
         return 1;
     }
@@ -24,13 +27,15 @@ int main(int argc, char *argv[]) {
     int port = (argc == 3) ? atoi(argv[2]) : DEFAULT_PORT;
 
     int fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (fd < 0) die("socket");
+    if (fd < 0)
+        die("socket");
 
     struct sockaddr_in addr = {
         .sin_family = AF_INET,
-        .sin_port   = htons(port),
+        .sin_port = htons(port),
     };
-    if (inet_pton(AF_INET, remote_ip, &addr.sin_addr) != 1) {
+    if (inet_pton(AF_INET, remote_ip, &addr.sin_addr) != 1)
+    {
         fprintf(stderr, "invalid address: %s\n", remote_ip);
         return 1;
     }
@@ -40,7 +45,8 @@ int main(int argc, char *argv[]) {
 
     printf("connected to %s:%d\n", remote_ip, port);
 
-    for (int seq = 1; ; seq++) {
+    for (int seq = 1; seq < 1000; seq++)
+    {
         struct timespec ts;
         clock_gettime(CLOCK_REALTIME, &ts);
 
@@ -49,7 +55,8 @@ int main(int argc, char *argv[]) {
                          "msg #%d  t=%ld.%03ld\n",
                          seq, (long)ts.tv_sec, ts.tv_nsec / 1000000L);
 
-        if (write(fd, buf, n) != n) {
+        if (write(fd, buf, n) != n)
+        {
             fprintf(stderr, "write failed at msg #%d\n", seq);
             break;
         }
@@ -57,7 +64,7 @@ int main(int argc, char *argv[]) {
         printf("sent: %.*s", n, buf);
         fflush(stdout);
 
-        struct timespec delay = { .tv_sec = 0, .tv_nsec = INTERVAL_MS * 1000000L };
+        struct timespec delay = {.tv_sec = 0, .tv_nsec = INTERVAL_MS * 1000000L};
         nanosleep(&delay, NULL);
     }
 
