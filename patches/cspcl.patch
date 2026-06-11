@@ -1,0 +1,64 @@
+src/cspcl.c                 |  9 +++++----
+ src/cspcl_config.h          | 10 +++++++++-
+ ud3tn-integration/dev.patch |  6 +++---
+ 3 files changed, 17 insertions(+), 8 deletions(-)
+
+--- Changes ---
+
+src/cspcl.c
+  @@ -140,7 +140,7 @@ static csp_conn_t *cspcl_pool_get_or_create_locked(cspcl_conn_pool_t *pool, uint
+  -  csp_conn_t *conn = csp_connect(CSP_PRIO_NORM, dest_addr, dest_port, CSPCL_CSP_TIMEOUT_MS,
+  +  csp_conn_t *conn = csp_connect(CSP_PRIO_NORM, dest_addr, dest_port, CSPCL_CSP_CONNECT_TIMEOUT_MS,
+                                    CSPCL_CSP_CONN_OPTIONS);
+     if (conn == NULL) {
+       pool->stats.connect_failures++;
+  @@ -453,9 +453,10 @@ cspcl_error_t cspcl_send_bundle(cspcl_t *cspcl, const uint8_t *bundle, size_t le
+  -  if (ret != CSP_ERR_NONE) {
+  -    cspcl_pool_invalidate_locked(pool, dest_addr, dest_port);
+  -  }
+  +  /* Always invalidate: with RDP the receiver closes the connection after
+  +   * delivery, so any cached conn is stale by the next send.  Reusing a
+  +   * remotely-closed RDP connection corrupts libcsp internal state. */
+  +  cspcl_pool_invalidate_locked(pool, dest_addr, dest_port);
+   
+     if (cspcl_pool_unlock(pool) != 0) {
+       CSPCL_LOG("pool unlock failed after send");
+  +5 -4
+
+src/cspcl_config.h
+  @@ -33,11 +33,19 @@
+  -/** CSP connection timeout in milliseconds */
+  +/** CSP timeout (ms) for SFP fragment sends and csp_accept */
+   #ifndef CSPCL_CSP_TIMEOUT_MS
+   #define CSPCL_CSP_TIMEOUT_MS 1000
+   #endif
+   
+  +/** CSP timeout (ms) per RDP SYN retransmission attempt in csp_connect.
+  + *  CSP RDP retries ~10 times, so the total failure window is
+  + *  CSPCL_CSP_CONNECT_TIMEOUT_MS * ~10.  Keep this well under any caller's
+  + *  PDU watchdog (unibo-bp fires at ~10 s, so stay under ~1 s total). */
+  +#ifndef CSPCL_CSP_CONNECT_TIMEOUT_MS
+  +#define CSPCL_CSP_CONNECT_TIMEOUT_MS 100
+  +#endif
+  +
+   /** CSP connection options for outbound connections (bitmask of CSP_O_*) */
+   #ifndef CSPCL_CSP_CONN_OPTIONS
+   #define CSPCL_CSP_CONN_OPTIONS CSP_O_RDP
+  +9 -1
+
+ud3tn-integration/dev.patch
+  @@ -27,8 +27,8 @@ index b109adb..a33110c 100644
+  -+                     -I/home/mathias/libcsp-src/include \
+  -+                     -I/home/mathias/libcsp-src/build/include \
+  ++                     -I/home/prnm691/Documents/DTN-paper/libcsp/include \
+  ++                     -I/home/prnm691/Documents/DTN-paper/libcsp/build/include \
+                         -Igenerated
+    
+    $(eval $(call addComponentWithRules,components/aap))
+  @@ -53,7 +53,7 @@ index 2adaa41..469dd6c 100644
+  -+LDFLAGS += -L/home/mathias/libcsp-src/build -lcsp -lzmq -lsocketcan
+  ++LDFLAGS += -L/home/prnm691/Documents/DTN-paper/libcsp/build -lcsp -lzmq -lsocketcan
+   +
+   +
+    ifndef DISABLE_SQLITE_STORAGE
+  +3 -3

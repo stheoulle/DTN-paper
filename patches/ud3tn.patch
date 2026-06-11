@@ -1,0 +1,61 @@
+diff --git a/components/cla/cla.c b/components/cla/cla.c
+index 2a4701b..c9a782f 100644
+--- a/components/cla/cla.c
++++ b/components/cla/cla.c
+@@ -7,6 +7,7 @@
+ #include "cla/posix/cla_tcpclv3.h"
+ #include "cla/posix/cla_tcpspp.h"
+ #include "cla/posix/cla_bibe.h"
++#include "cla/cla_csp.h"
+ #include "cla/storage/cla_sqlite.h"
+ 
+ #include "platform/hal_io.h"
+@@ -39,6 +40,7 @@ const struct available_cla_list_entry AVAILABLE_CLAS[] = {
+ 	{ "tcpclv3", &tcpclv3_create },
+ 	{ "tcpspp", &tcpspp_create },
+ 	{ "bibe", &bibe_create },
++	{ "csp", &csp_cla_create },
+ #ifndef DISABLE_SQLITE_STORAGE
+ 	{ "sqlite", &sqlite_create },
+ #endif // DISABLE_SQLITE_STORAGE
+diff --git a/mk/build.mk b/mk/build.mk
+index 15a7914..f52b1cb 100644
+--- a/mk/build.mk
++++ b/mk/build.mk
+@@ -5,6 +5,9 @@ include mk/toolchain.mk
+ EXTERNAL_INCLUDES += -Iexternal/nanopb \
+                      -Iexternal/tinycbor/src \
+                      -Iexternal/util/include \
++                     -Iexternal/cspcl \
++                     -I/home/prnm691/Documents/DTN-paper/libcsp/include \
++                     -I/home/prnm691/Documents/DTN-paper/libcsp/build/include \
+                      -Igenerated
+ 
+ $(eval $(call addComponentWithRules,components/aap))
+@@ -44,6 +47,11 @@ TINYCBOR_SOURCES := \
+ $(eval $(call addComponentWithRules,external/tinycbor/src,$(TINYCBOR_SOURCES)))
+ $(eval $(call addComponentWithRules,external/util/src))
+ 
++CSPCL_SOURCES := \
++	cspcl.c
++
++$(eval $(call addComponentWithRules,external/cspcl,$(CSPCL_SOURCES)))
++
+ $(eval $(call addComponentWithRules,generated/aap2))
+ 
+ # LIB
+diff --git a/mk/posix.mk b/mk/posix.mk
+index f7a2527..a39f4c8 100644
+--- a/mk/posix.mk
++++ b/mk/posix.mk
+@@ -33,6 +33,10 @@ endif
+ 
+ LDFLAGS += -lpthread
+ 
++# libcsp for CSP CLA
++LDFLAGS += -L/home/prnm691/Documents/DTN-paper/libcsp/build -lcsp -lzmq -lsocketcan
++
++
+ ifndef DISABLE_SQLITE_STORAGE
+   LDFLAGS += -lsqlite3
+ else

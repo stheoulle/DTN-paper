@@ -1,0 +1,2168 @@
+diff --git a/ud3tn/components/cla/posix/cla_csp.c b/ud3tn/components/cla/posix/cla_csp.c
+new file mode 100644
+index 0000000..098fc97
+--- /dev/null
++++ b/ud3tn/components/cla/posix/cla_csp.c
+@@ -0,0 +1,999 @@
++// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
++/**
++ * @file cla_csp.c
++ * @brief CSP Convergence Layer Adapter for uD3TN
++ *
++ * This CLA integrates CSPCL (CubeSat Space Protocol Convergence Layer)
++ * with uD3TN's bundle processor to enable BP7 over CSP.
++ *
++ * @version 1.0
++ */
++
++#include "cla/cla_csp.h"
++
++#include "bundle6/parser.h"
++#include "bundle7/parser.h"
++#include "cla/cla.h"
++#include "cla/cla_contact_tx_task.h"
++#include "platform/hal_io.h"
++#include "platform/hal_queue.h"
++#include "platform/hal_semaphore.h"
++#include "platform/hal_task.h"
++#include "platform/hal_time.h"
++#include "platform/hal_types.h"
++#include "ud3tn/bundle_processor.h"
++#include "ud3tn/cmdline.h"
++#include "ud3tn/common.h"
++#include "ud3tn/result.h"
++#include "ud3tn/simplehtab.h"
++
++/* CSPCL library */
++#include "cspcl.h"
++
++/* libcsp headers for direct CSP stack control */
++#include <csp/csp.h>
++#include <csp/csp_rtable.h>
++#include <csp/interfaces/csp_if_zmqhub.h>
++
++/* CAN interface support - requires libcsp built with CAN driver */
++#ifdef CSP_HAVE_LIBSOCKETCAN
++#include <csp/drivers/can_socketcan.h>
++#include <csp/interfaces/csp_if_can.h>
++#endif
++
++#include <stdbool.h>
++#include <stddef.h>
++#include <stdint.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++/*===========================================================================*/
++/* Constants                                                                  */
++/*===========================================================================*/
++
++static const char *CLA_NAME = "csp";
++
++/** Maximum number of concurrent CSP links */
++#define CSP_MAX_LINKS 16
++
++/** Hash table slots for parameter storage */
++#define CSP_PARAM_HTAB_SLOT_COUNT 8
++
++/** Default CSP port for Bundle Protocol */
++#define CSP_DEFAULT_BP_PORT 10
++
++/** RX buffer size */
++#define CSP_RX_BUFFER_SIZE 65536
++
++/** TX buffer size */
++#define CSP_TX_BUFFER_SIZE 65536
++
++/** Default ZMQHUB server address */
++#define CSP_ZMQHUB_ADDR_DEFAULT "localhost"
++
++/** Default CAN interface name */
++#define CSP_CAN_IFACE_DEFAULT "vcan0"
++
++/** Maximum length for ZMQHUB address or CAN interface name */
++#define CSP_IFACE_PARAM_MAX 64
++
++/** Flag to track if CSP has been initialized globally */
++static bool csp_initialized = false;
++
++/** Active CSP interface */
++static csp_iface_t *csp_active_iface = NULL;
++
++/*===========================================================================*/
++/* Data Structures                                                            */
++/*===========================================================================*/
++
++/**
++ * @brief CSP CLA configuration
++ */
++struct csp_cla_config {
++  struct cla_config base;
++
++  /* CSPCL instance */
++  cspcl_t cspcl;
++
++  /* Link management */
++  struct htab_entrylist *param_htab_elem[CSP_PARAM_HTAB_SLOT_COUNT];
++  struct htab param_htab;
++  Semaphore_t param_htab_sem;
++
++  /* RX task control */
++  bool rx_running;
++  Semaphore_t rx_task_sem;
++};
++
++/**
++ * @brief CSP link structure
++ */
++struct csp_link {
++  struct cla_link base;
++
++  /* CSPCL-specific protocol parser */
++  struct parser csp_parser;
++
++  /* Destination CSP address for this link */
++  uint8_t dest_addr;
++
++  uint8_t dest_port;
++
++  /* TX buffer for accumulating bundle data before sending */
++  uint8_t *tx_buffer;
++  size_t tx_buffer_len;
++  size_t tx_buffer_capacity;
++
++  /* RX buffer for incoming bundle data */
++  uint8_t *rx_buffer;
++  size_t rx_buffer_len;
++  size_t rx_buffer_pos;
++};
++
++/**
++ * @brief CSP contact parameters for link management
++ */
++struct csp_contact_parameters {
++  struct csp_link link;
++  struct csp_cla_config *config;
++
++  Semaphore_t param_semphr;
++
++  char *cla_addr;
++  uint8_t dest_addr;
++  uint8_t dest_port;
++
++  bool in_contact;
++  bool is_outgoing;
++};
++
++/*===========================================================================*/
++/* Forward Declarations                                                       */
++/*===========================================================================*/
++
++static const struct cla_vtable csp_vtable;
++
++/*===========================================================================*/
++/* Parser Implementation                                                      */
++/*===========================================================================*/
++
++/**
++ * @brief Reset CSP parser state
++ *
++ * CSP bundles arrive as complete units via CSPCL (which handles
++ * fragmentation/reassembly), so the parser is straightforward.
++ */
++static void csp_parser_reset(struct parser *parser)
++{
++  parser->status = PARSER_STATUS_GOOD;
++  parser->next_bytes = 0;
++  parser->flags = PARSER_FLAG_NONE;
++}
++
++/**
++ * @brief Parse CSP data
++ *
++ * CSPCL delivers complete bundles, so we just signal that all data
++ * should be forwarded to the bundle parser.
++ */
++static size_t csp_parser_parse(struct parser *parser, const uint8_t *buffer, size_t length)
++{
++  (void) buffer;
++
++  /* Signal that data should be forwarded to bundle subparser */
++  parser->flags = PARSER_FLAG_DATA_SUBPARSER;
++  parser->next_bytes = length;
++
++  return 0; /* Header bytes consumed (none for CSP - data is raw bundle) */
++}
++
++/*===========================================================================*/
++/* Helper Functions                                                           */
++/*===========================================================================*/
++
++/**
++ * @brief Parse CSP address from CLA address string
++ *
++ * Expects format: "csp:<addr>" where addr is 0-255
++ *
++ * @param cla_addr  Full CLA address (e.g., "csp:2")
++ * @return CSP address, or 0 on parse error
++ */
++static uint8_t parse_csp_addr(const char *cla_addr)
++{
++  if (!cla_addr)
++    return 0;
++
++  /* Skip CLA name prefix if present */
++  const char *addr_str = cla_addr;
++  if (strncmp(addr_str, "csp:", 4) == 0) {
++    addr_str += 4;
++  }
++
++  int addr = atoi(addr_str);
++  if (addr < 0 || addr > 255)
++    return 0;
++
++  return (uint8_t) addr;
++}
++
++static bool is_valid_csp_addr_string(const char *cla_addr, uint8_t parsed_addr)
++{
++  if (parsed_addr != 0 || !cla_addr)
++    return parsed_addr != 0;
++
++  const char *addr_str = cla_addr;
++  if (strncmp(addr_str, "csp:", 4) == 0)
++    addr_str += 4;
++
++  return addr_str[0] == '0' && (addr_str[1] == '\0' || addr_str[1] == ',');
++}
++
++/**
++ * @brief Parse CSP port from CLA address string
++ *
++ * Expects format: "csp:<addr>,<port>" or falls back to CSP_DEFAULT_BP_PORT
++ *
++ * @param cla_addr  Full CLA address (e.g., "csp:2,10")
++ * @return CSP port
++ */
++static uint8_t parse_csp_port(const char *cla_addr)
++{
++  if (!cla_addr)
++    return CSP_DEFAULT_BP_PORT;
++
++  const char *addr_str = cla_addr;
++  if (strncmp(addr_str, "csp:", 4) == 0)
++    addr_str += 4;
++
++  const char *comma = strchr(addr_str, ',');
++  if (!comma)
++    return CSP_DEFAULT_BP_PORT;
++
++  int port = atoi(comma + 1);
++  if (port < 0 || port > 31)
++    return CSP_DEFAULT_BP_PORT;
++
++  return (uint8_t) port;
++}
++
++
++static char *create_cla_addr(uint8_t csp_addr, uint8_t csp_port)
++{
++  char *addr = malloc(16);
++  if (addr) {
++    snprintf(addr, 16, "%u,%u", csp_addr, csp_port);
++  }
++  return addr;
++}
++
++/*===========================================================================*/
++/* Link Management                                                            */
++/*===========================================================================*/
++
++static enum ud3tn_result csp_link_init(struct csp_link *link, struct csp_cla_config *config,
++                                       uint8_t dest_addr, uint8_t dest_port, const char *cla_addr)
++{
++  /* Initialize base link */
++  if (cla_link_init(&link->base, &config->base, cla_addr, true, true) != UD3TN_OK) {
++    return UD3TN_FAIL;
++  }
++
++  link->dest_addr = dest_addr;
++  link->dest_port = dest_port;
++
++  /* Allocate TX buffer */
++  link->tx_buffer = malloc(CSP_TX_BUFFER_SIZE);
++  if (!link->tx_buffer) {
++    LOG_ERROR("CSP: Failed to allocate TX buffer");
++    cla_link_cleanup(&link->base);
++    return UD3TN_FAIL;
++  }
++  link->tx_buffer_len = 0;
++  link->tx_buffer_capacity = CSP_TX_BUFFER_SIZE;
++
++  /* Allocate RX buffer */
++  link->rx_buffer = malloc(CSP_RX_BUFFER_SIZE);
++  if (!link->rx_buffer) {
++    LOG_ERROR("CSP: Failed to allocate RX buffer");
++    free(link->tx_buffer);
++    cla_link_cleanup(&link->base);
++    return UD3TN_FAIL;
++  }
++  link->rx_buffer_len = 0;
++  link->rx_buffer_pos = 0;
++
++  /* Initialize parser */
++  csp_parser_reset(&link->csp_parser);
++
++  return UD3TN_OK;
++}
++
++static void csp_link_cleanup(struct csp_link *link)
++{
++  if (link->tx_buffer) {
++    free(link->tx_buffer);
++    link->tx_buffer = NULL;
++  }
++  if (link->rx_buffer) {
++    free(link->rx_buffer);
++    link->rx_buffer = NULL;
++  }
++
++  cla_link_cleanup(&link->base);
++}
++
++/*===========================================================================*/
++/* Contact Management                                                         */
++/*===========================================================================*/
++
++static void csp_link_management_task(void *p)
++{
++  struct csp_contact_parameters *const param = p;
++  struct csp_cla_config *const config = param->config;
++
++  LOGF_INFO("CSP: Starting link management for csp:%u", param->dest_addr);
++
++  /* Initialize the link */
++  if (csp_link_init(&param->link, config, param->dest_addr, param->dest_port, param->cla_addr) !=
++      UD3TN_OK) {
++    LOG_ERROR("CSP: Failed to initialize link");
++    goto cleanup;
++  }
++
++  /* Release semaphore for TX/RX tasks */
++  hal_semaphore_release(param->param_semphr);
++
++  /* Wait for link tasks to complete */
++  cla_link_wait(&param->link.base);
++
++  /* Reacquire semaphore */
++  hal_semaphore_take_blocking(param->config->param_htab_sem);
++  hal_semaphore_take_blocking(param->param_semphr);
++  csp_link_cleanup(&param->link);
++  hal_semaphore_release(param->config->param_htab_sem);
++
++cleanup:
++  LOGF_INFO("CSP: Terminating link manager for csp:%u", param->dest_addr);
++
++  /* Remove from hash table */
++  hal_semaphore_take_blocking(param->config->param_htab_sem);
++  if (htab_get(&param->config->param_htab, param->cla_addr) == param)
++    htab_remove(&param->config->param_htab, param->cla_addr);
++  hal_semaphore_release(param->config->param_htab_sem);
++
++  /* Cleanup */
++  hal_semaphore_take_blocking(param->param_semphr);
++  free(param->cla_addr);
++  hal_semaphore_delete(param->param_semphr);
++  free(param);
++}
++
++static struct csp_contact_parameters *create_contact_params(struct csp_cla_config *config,
++                                                            uint8_t dest_addr, uint8_t dest_port,
++                                                            bool is_outgoing)
++{
++  struct csp_contact_parameters *param = malloc(sizeof(*param));
++  if (!param) {
++    LOG_ERROR("CSP: Failed to allocate contact parameters");
++    return NULL;
++  }
++
++  memset(param, 0, sizeof(*param));
++  param->config = config;
++  param->dest_addr = dest_addr;
++  param->dest_port = dest_port;
++  param->cla_addr = create_cla_addr(dest_addr, dest_port);
++  param->in_contact = true;
++  param->is_outgoing = is_outgoing;
++
++  if (!param->cla_addr) {
++    free(param);
++    return NULL;
++  }
++
++  param->param_semphr = hal_semaphore_init_binary();
++  if (!param->param_semphr) {
++    free(param->cla_addr);
++    free(param);
++    return NULL;
++  }
++
++  return param;
++}
++
++static void launch_connection_management(struct csp_cla_config *config, uint8_t dest_addr,
++                                         uint8_t dest_port)
++{
++  struct csp_contact_parameters *param = create_contact_params(config, dest_addr, dest_port, true);
++
++  if (!param)
++    return;
++
++  /* Add to hash table */
++  struct htab_entrylist *entry = htab_add(&config->param_htab, param->cla_addr, param);
++
++  if (!entry) {
++    LOG_ERROR("CSP: Failed to add to hash table");
++    hal_semaphore_delete(param->param_semphr);
++    free(param->cla_addr);
++    free(param);
++    return;
++  }
++
++  /* Launch management task */
++  if (hal_task_create(csp_link_management_task, param, true, NULL) != UD3TN_OK) {
++    LOG_ERROR("CSP: Failed to create management task");
++    htab_remove(&config->param_htab, param->cla_addr);
++    hal_semaphore_delete(param->param_semphr);
++    free(param->cla_addr);
++    free(param);
++  }
++}
++
++/*===========================================================================*/
++/* RX Task                                                                    */
++/*===========================================================================*/
++
++static void csp_rx_task(void *p)
++{
++  struct csp_cla_config *const config = p;
++  uint8_t bundle_buffer[CSP_RX_BUFFER_SIZE];
++  size_t bundle_len;
++  uint8_t src_addr;
++  uint8_t src_port;
++
++  LOG_INFO("CSP: RX task started");
++
++  while (config->rx_running) {
++    bundle_len = sizeof(bundle_buffer);
++    /* Receive bundle via CSPCL */
++
++    cspcl_error_t err = cspcl_recv_bundle(&config->cspcl, bundle_buffer, &bundle_len, &src_addr,
++                                          &src_port, 1000 /* 1 second timeout */
++    );
++
++    if (err == CSPCL_ERR_TIMEOUT)
++      continue;
++
++    if (err != CSPCL_OK) {
++      LOGF_WARN("CSP: RX error: %s", cspcl_strerror(err));
++      continue;
++    }
++
++    LOGF_DEBUG("CSP: Received %zu bytes from csp:%u,%u", bundle_len, src_addr, src_port);
++
++    /* Look up or create link for this source */
++    char *cla_addr = create_cla_addr(src_addr, src_port);
++    if (!cla_addr)
++      continue;
++
++    hal_semaphore_take_blocking(config->param_htab_sem);
++    struct csp_contact_parameters *param = htab_get(&config->param_htab, cla_addr);
++
++    if (!param) {
++      /* Create opportunistic link */
++      launch_connection_management(config, src_addr, src_port);
++      param = htab_get(&config->param_htab, cla_addr);
++    }
++    hal_semaphore_release(config->param_htab_sem);
++    free(cla_addr);
++
++    if (!param)
++      continue;
++
++    /* Store received data in link's RX buffer */
++    hal_semaphore_take_blocking(param->param_semphr);
++    if (bundle_len <= CSP_RX_BUFFER_SIZE - param->link.rx_buffer_len) {
++      memcpy(param->link.rx_buffer + param->link.rx_buffer_len, bundle_buffer, bundle_len);
++      param->link.rx_buffer_len += bundle_len;
++    }
++    hal_semaphore_release(param->param_semphr);
++  }
++
++  LOG_INFO("CSP: RX task terminated");
++  hal_semaphore_release(config->rx_task_sem);
++}
++
++/*===========================================================================*/
++/* CLA VTable Implementation                                                  */
++/*===========================================================================*/
++
++static const char *csp_cla_name_get(void)
++{
++  return CLA_NAME;
++}
++
++static enum ud3tn_result csp_cla_launch(struct cla_config *const config)
++{
++  struct csp_cla_config *const csp_config = (struct csp_cla_config *) config;
++
++  csp_config->rx_running = true;
++
++  return hal_task_create(csp_rx_task, csp_config, true, NULL);
++}
++
++static enum ud3tn_result csp_cla_terminate(struct cla_config *const config)
++{
++  struct csp_cla_config *const csp_config = (struct csp_cla_config *) config;
++
++  csp_config->rx_running = false;
++
++  /* Wait for RX task to finish */
++  hal_semaphore_take_blocking(csp_config->rx_task_sem);
++
++  LOG_DEBUG("CSP: CLA terminated gracefully");
++  return UD3TN_OK;
++}
++
++size_t csp_cla_mbs_get(struct cla_config *const config)
++{
++  (void) config;
++  /* CSPCL supports bundles up to CSPCL_MAX_BUNDLE_SIZE */
++  return CSPCL_MAX_BUNDLE_SIZE;
++}
++
++static struct cla_tx_queue csp_cla_get_tx_queue(struct cla_config *config, const char *eid,
++                                                const char *cla_addr)
++{
++  (void) eid;
++  struct csp_cla_config *const csp_config = (struct csp_cla_config *) config;
++
++  struct cla_tx_queue result = {
++      .tx_queue_handle = NULL,
++      .tx_queue_sem = NULL,
++  };
++
++  uint8_t dest_addr = parse_csp_addr(cla_addr);
++  if (!is_valid_csp_addr_string(cla_addr, dest_addr)) {
++    LOGF_WARN("CSP: Invalid CLA address: %s", cla_addr);
++    return result;
++  }
++
++  uint8_t dest_port = parse_csp_port(cla_addr);
++  char *normalized_addr = create_cla_addr(dest_addr, dest_port);
++  if (!normalized_addr) {
++    return result;
++  }
++
++  hal_semaphore_take_blocking(csp_config->param_htab_sem);
++
++  struct csp_contact_parameters *param = htab_get(&csp_config->param_htab, normalized_addr);
++
++  if (param) {
++    hal_semaphore_take_blocking(param->param_semphr);
++    result.tx_queue_handle = param->link.base.tx_queue_handle;
++    result.tx_queue_sem = param->link.base.tx_queue_sem;
++    hal_semaphore_release(param->param_semphr);
++  }
++
++  hal_semaphore_release(csp_config->param_htab_sem);
++  free(normalized_addr);
++
++  return result;
++}
++
++static enum cla_link_update_result
++csp_cla_start_scheduled_contact(struct cla_config *config, const char *eid, const char *cla_addr)
++{
++  (void) eid;
++  struct csp_cla_config *const csp_config = (struct csp_cla_config *) config;
++
++  uint8_t dest_addr = parse_csp_addr(cla_addr);
++  if (!is_valid_csp_addr_string(cla_addr, dest_addr)) {
++    LOGF_WARN("CSP: Invalid CLA address for contact: %s", cla_addr);
++    return CLA_LINK_UPDATE_FAILED;
++  }
++
++  uint8_t dest_port = parse_csp_port(cla_addr);
++  char *normalized_addr = create_cla_addr(dest_addr, dest_port);
++  if (!normalized_addr) {
++    return CLA_LINK_UPDATE_FAILED;
++  }
++  LOGF_INFO("CSP: Starting scheduled contact to csp:%u", dest_addr);
++
++  hal_semaphore_take_blocking(csp_config->param_htab_sem);
++
++  /* Check if link already exists */
++  struct csp_contact_parameters *existing = htab_get(&csp_config->param_htab, normalized_addr);
++
++  if (existing) {
++    hal_semaphore_take_blocking(existing->param_semphr);
++    existing->in_contact = true;
++    hal_semaphore_release(existing->param_semphr);
++    hal_semaphore_release(csp_config->param_htab_sem);
++    free(normalized_addr);
++    return CLA_LINK_UPDATE_UNCHANGED;
++  }
++
++  /* Create new link */
++  launch_connection_management(csp_config, dest_addr, dest_port);
++
++  hal_semaphore_release(csp_config->param_htab_sem);
++  free(normalized_addr);
++
++  return CLA_LINK_UPDATE_INITIATED;
++}
++
++static enum cla_link_update_result
++csp_cla_end_scheduled_contact(struct cla_config *config, const char *eid, const char *cla_addr)
++{
++  (void) eid;
++  struct csp_cla_config *const csp_config = (struct csp_cla_config *) config;
++  uint8_t dest_addr = parse_csp_addr(cla_addr);
++  if (!is_valid_csp_addr_string(cla_addr, dest_addr)) {
++    LOGF_WARN("CSP: Invalid CLA address for contact end: %s", cla_addr);
++    return CLA_LINK_UPDATE_FAILED;
++  }
++  uint8_t dest_port = parse_csp_port(cla_addr);
++  char *normalized_addr = create_cla_addr(dest_addr, dest_port);
++  if (!normalized_addr) {
++    return CLA_LINK_UPDATE_FAILED;
++  }
++
++  LOGF_INFO("CSP: Ending scheduled contact to %s", cla_addr);
++
++  hal_semaphore_take_blocking(csp_config->param_htab_sem);
++
++  struct csp_contact_parameters *param = htab_get(&csp_config->param_htab, normalized_addr);
++
++  if (param) {
++    hal_semaphore_take_blocking(param->param_semphr);
++    param->in_contact = false;
++    /* Notify RX task to finish */
++    hal_semaphore_try_take(param->link.base.rx_task_notification, 0);
++    hal_semaphore_release(param->param_semphr);
++    hal_semaphore_release(csp_config->param_htab_sem);
++    free(normalized_addr);
++    return CLA_LINK_UPDATE_INITIATED;
++  }
++
++  hal_semaphore_release(csp_config->param_htab_sem);
++  free(normalized_addr);
++  return CLA_LINK_UPDATE_UNCHANGED;
++}
++
++enum cla_begin_packet_result csp_cla_begin_packet(struct cla_link *link,
++                                                  const struct bundle *const bundle, size_t length,
++                                                  char *cla_addr)
++{
++  (void) bundle;
++  (void) cla_addr;
++
++  struct csp_link *const csp_link = (struct csp_link *) link;
++
++  /* Reset TX buffer for new bundle */
++  csp_link->tx_buffer_len = 0;
++
++  /* Check if bundle fits in buffer */
++  if (length > csp_link->tx_buffer_capacity) {
++    LOG_WARN("CSP: Bundle too large for TX buffer");
++    return CLA_BEGIN_PACKET_FAIL;
++  }
++
++  LOGF_DEBUG("CSP: Beginning packet of %zu bytes to csp:%u", length, csp_link->dest_addr);
++
++  return CLA_BEGIN_PACKET_OK;
++}
++
++enum ud3tn_result csp_cla_end_packet(struct cla_link *link)
++{
++  struct csp_link *const csp_link = (struct csp_link *) link;
++  struct csp_cla_config *const config = (struct csp_cla_config *) link->config;
++
++  if (csp_link->tx_buffer_len == 0) {
++    LOG_WARN("CSP: Empty packet, nothing to send");
++    return UD3TN_OK;
++  }
++
++  LOGF_DEBUG("CSP: Sending %zu bytes to csp:%u", csp_link->tx_buffer_len, csp_link->dest_addr);
++
++  /* Send bundle via CSPCL */
++  cspcl_error_t err =
++      cspcl_send_bundle(&config->cspcl, csp_link->tx_buffer, csp_link->tx_buffer_len,
++                        csp_link->dest_addr, csp_link->dest_port);
++
++  /* Reset TX buffer */
++  csp_link->tx_buffer_len = 0;
++
++  if (err != CSPCL_OK) {
++    LOGF_WARN("CSP: Failed to send bundle: %s", cspcl_strerror(err));
++    link->config->vtable->cla_disconnect_handler(link);
++    return UD3TN_FAIL;
++  }
++
++  return UD3TN_OK;
++}
++
++enum ud3tn_result csp_cla_send_packet_data(struct cla_link *link, const void *data,
++                                           const size_t length)
++{
++  struct csp_link *const csp_link = (struct csp_link *) link;
++
++  /* Accumulate data in TX buffer */
++  if (csp_link->tx_buffer_len + length > csp_link->tx_buffer_capacity) {
++    LOG_WARN("CSP: TX buffer overflow");
++    return UD3TN_FAIL;
++  }
++
++  memcpy(csp_link->tx_buffer + csp_link->tx_buffer_len, data, length);
++  csp_link->tx_buffer_len += length;
++
++  return UD3TN_OK;
++}
++
++void csp_cla_reset_parsers(struct cla_link *link)
++{
++  struct csp_link *const csp_link = (struct csp_link *) link;
++
++  rx_task_reset_parsers(&link->rx_task_data);
++
++  csp_parser_reset(&csp_link->csp_parser);
++  link->rx_task_data.cur_parser = &csp_link->csp_parser;
++}
++
++size_t csp_cla_forward_to_specific_parser(struct cla_link *link, const uint8_t *buffer,
++                                          size_t length)
++{
++  struct rx_task_data *const rx_data = &link->rx_task_data;
++  size_t result = 0;
++
++  switch (rx_data->payload_type) {
++  case PAYLOAD_UNKNOWN:
++    result = select_bundle_parser_version(rx_data, buffer, length);
++    if (result == 0)
++      csp_cla_reset_parsers(link);
++    break;
++  case PAYLOAD_BUNDLE6:
++    rx_data->cur_parser = rx_data->bundle6_parser.basedata;
++    result = bundle6_parser_read(&rx_data->bundle6_parser, buffer, length);
++    break;
++  case PAYLOAD_BUNDLE7:
++    rx_data->cur_parser = rx_data->bundle7_parser.basedata;
++    result = bundle7_parser_read(&rx_data->bundle7_parser, buffer, length);
++    break;
++  default:
++    csp_cla_reset_parsers(link);
++    result = length;
++    break;
++  }
++
++  return result;
++}
++
++enum ud3tn_result csp_cla_read(struct cla_link *link, uint8_t *buffer, size_t length,
++                               size_t *bytes_read)
++{
++  struct csp_link *const csp_link = (struct csp_link *) link;
++
++  *bytes_read = 0;
++
++  /* Check if there's data in the RX buffer */
++  if (csp_link->rx_buffer_pos >= csp_link->rx_buffer_len) {
++    /* No data available, wait briefly */
++    hal_task_delay(10);
++    return UD3TN_OK;
++  }
++
++  /* Calculate how much data to return */
++  size_t available = csp_link->rx_buffer_len - csp_link->rx_buffer_pos;
++  size_t to_read = (length < available) ? length : available;
++
++  memcpy(buffer, csp_link->rx_buffer + csp_link->rx_buffer_pos, to_read);
++  csp_link->rx_buffer_pos += to_read;
++  *bytes_read = to_read;
++
++  /* Reset buffer if fully consumed */
++  if (csp_link->rx_buffer_pos >= csp_link->rx_buffer_len) {
++    csp_link->rx_buffer_len = 0;
++    csp_link->rx_buffer_pos = 0;
++  }
++
++  /* Update last RX time */
++  link->last_rx_time_ms = hal_time_get_timestamp_ms();
++
++  return UD3TN_OK;
++}
++
++static void csp_cla_disconnect_handler(struct cla_link *link)
++{
++  LOGF_DEBUG("CSP: Disconnect handler called for %s",
++             link->cla_addr ? link->cla_addr : "(unknown)");
++  cla_generic_disconnect_handler(link);
++}
++
++/*===========================================================================*/
++/* VTable Definition                                                          */
++/*===========================================================================*/
++
++static const struct cla_vtable csp_vtable = {
++    .cla_name_get = csp_cla_name_get,
++
++    .cla_launch = csp_cla_launch,
++    .cla_terminate = csp_cla_terminate,
++
++    .cla_mbs_get = csp_cla_mbs_get,
++    .cla_get_tx_queue = csp_cla_get_tx_queue,
++
++    .cla_start_scheduled_contact = csp_cla_start_scheduled_contact,
++    .cla_end_scheduled_contact = csp_cla_end_scheduled_contact,
++
++    .cla_begin_packet = csp_cla_begin_packet,
++    .cla_end_packet = csp_cla_end_packet,
++    .cla_send_packet_data = csp_cla_send_packet_data,
++
++    .cla_rx_task_reset_parsers = csp_cla_reset_parsers,
++    .cla_rx_task_forward_to_specific_parser = csp_cla_forward_to_specific_parser,
++
++    .cla_read = csp_cla_read,
++
++    .cla_disconnect_handler = csp_cla_disconnect_handler,
++};
++
++/*===========================================================================*/
++/* Initialization                                                             */
++/*===========================================================================*/
++
++static enum ud3tn_result csp_cla_init(struct csp_cla_config *config, uint8_t local_addr,
++                                      uint8_t csp_port,
++                                      const struct bundle_agent_interface *bundle_agent_interface)
++{
++  /* Initialize base config */
++  if (cla_config_init(&config->base, bundle_agent_interface) != UD3TN_OK)
++    return UD3TN_FAIL;
++
++  config->base.vtable = &csp_vtable;
++
++  /* Initialize hash table semaphore */
++  config->param_htab_sem = hal_semaphore_init_binary();
++  if (!config->param_htab_sem) {
++    cspcl_cleanup(&config->cspcl);
++    return UD3TN_FAIL;
++  }
++  hal_semaphore_release(config->param_htab_sem);
++
++  /* Initialize RX task semaphore */
++  config->rx_task_sem = hal_semaphore_init_binary();
++  if (!config->rx_task_sem) {
++    hal_semaphore_delete(config->param_htab_sem);
++    cspcl_cleanup(&config->cspcl);
++    return UD3TN_FAIL;
++  }
++
++  /* Initialize hash table */
++  htab_init(&config->param_htab, CSP_PARAM_HTAB_SLOT_COUNT, config->param_htab_elem);
++
++  config->rx_running = false;
++
++  LOGF_INFO("CSP: Initialized with local address %u, port %u", local_addr, csp_port);
++
++  return UD3TN_OK;
++}
++
++struct cla_config *csp_cla_create(const char *const options[], const size_t option_count,
++                                  const struct bundle_agent_interface *bundle_agent_interface)
++{
++  if (option_count < 2 || option_count > 3) {
++    LOG_ERROR("CSP: Options format: <local_addr>,<csp_port>[,<iface>]");
++    LOG_ERROR("CSP: Where <iface> is one of:");
++    LOG_ERROR("CSP:   zmqhub           - ZMQHUB broker at localhost (default)");
++    LOG_ERROR("CSP:   zmqhub:<host>    - ZMQHUB broker at <host>");
++    LOG_ERROR("CSP:   can              - SocketCAN on vcan0 (default)");
++    LOG_ERROR("CSP:   can:<iface>      - SocketCAN on <iface> (e.g. can0)");
++    LOG_ERROR("CSP:   loopback         - local loopback");
++    LOG_ERROR("CSP: Examples:");
++    LOG_ERROR("CSP:   csp:1,10");
++    LOG_ERROR("CSP:   csp:1,10,zmqhub");
++    LOG_ERROR("CSP:   csp:1,10,zmqhub:192.168.1.10");
++    LOG_ERROR("CSP:   csp:1,10,can");
++    LOG_ERROR("CSP:   csp:1,10,can:can0");
++    return NULL;
++  }
++
++  struct csp_cla_config *config = malloc(sizeof(struct csp_cla_config));
++  if (!config) {
++    LOG_ERROR("CSP: Memory allocation failed");
++    return NULL;
++  }
++  memset(config, 0, sizeof(*config));
++  config->cspcl.local_addr = (uint8_t) atoi(options[0]);
++  config->cspcl.csp_port = (uint8_t) atoi(options[1]);
++
++  config->cspcl.iface_type = CSP_IFACE_ZMQHUB;
++  strncpy(config->cspcl.zmqhub_addr, CSP_ZMQHUB_ADDR_DEFAULT, CSP_IFACE_PARAM_MAX - 1);
++  strncpy(config->cspcl.can_iface, CSP_CAN_IFACE_DEFAULT, CSP_IFACE_PARAM_MAX - 1);
++
++  if (option_count >= 3) {
++    const char *iface_spec = options[2];
++
++    if (strncmp(iface_spec, "zmqhub:", 7) == 0) {
++      config->cspcl.iface_type = CSP_IFACE_ZMQHUB;
++      strncpy(config->cspcl.zmqhub_addr, iface_spec + 7, CSP_IFACE_PARAM_MAX - 1);
++      if (config->cspcl.zmqhub_addr[0] == '\0') {
++        LOG_ERROR("CSP: zmqhub:<host> — host must not be empty");
++        free(config);
++        return NULL;
++      }
++    } else if (strcmp(iface_spec, "zmqhub") == 0) {
++      config->cspcl.iface_type = CSP_IFACE_ZMQHUB;
++    } else if (strncmp(iface_spec, "can:", 4) == 0) {
++      config->cspcl.iface_type = CSP_IFACE_CAN;
++      strncpy(config->cspcl.can_iface, iface_spec + 4, CSP_IFACE_PARAM_MAX - 1);
++      if (config->cspcl.can_iface[0] == '\0') {
++        LOG_ERROR("CSP: can:<iface> — interface name must not be empty");
++        free(config);
++        return NULL;
++      }
++    } else if (strcmp(iface_spec, "can") == 0) {
++      config->cspcl.iface_type = CSP_IFACE_CAN;
++    } else if (strcmp(iface_spec, "loopback") == 0) {
++      config->cspcl.iface_type = CSP_IFACE_LOOPBACK;
++    } else {
++      LOGF_ERROR("CSP: Unknown interface specifier '%s'", iface_spec);
++      LOG_ERROR("CSP: Valid: zmqhub, zmqhub:<host>, can, can:<iface>, loopback");
++      free(config);
++      return NULL;
++    }
++  }
++
++  LOGF_DEBUG("CSP: Creating CLA with local_addr=%u, csp_port=%u", config->cspcl.local_addr,
++             config->cspcl.csp_port);
++  switch (config->cspcl.iface_type) {
++  case CSP_IFACE_ZMQHUB:
++    LOGF_DEBUG("CSP:   iface=zmqhub, host='%s'", config->cspcl.zmqhub_addr);
++    break;
++  case CSP_IFACE_CAN:
++    LOGF_DEBUG("CSP:   iface=can, iface='%s'", config->cspcl.can_iface);
++    break;
++  case CSP_IFACE_LOOPBACK:
++    LOG_DEBUG("CSP:   iface=loopback");
++    break;
++  }
++
++  if (csp_cla_init(config, config->cspcl.local_addr, config->cspcl.csp_port,
++                   bundle_agent_interface) != UD3TN_OK) {
++    free(config);
++    LOG_ERROR("CSP: Initialization failed");
++    return NULL;
++  }
++
++  cspcl_error_t ret = cspcl_init(&config->cspcl);
++  if (ret != CSPCL_OK) {
++    free(config);
++    switch (ret) {
++    case CSPCL_ERR_INVALID_PARAM:
++      LOG_ERROR("CSP: Initialization failed: invalid parameter");
++      break;
++    case CSPCL_ERR_NO_MEMORY:
++      LOG_ERROR("CSP: Initialization failed: memory allocation failed");
++      break;
++    case CSPCL_ERR_CSP_STACK_INIT:
++      LOG_ERROR("CSP: Initialization failed: csp_init() failed");
++      break;
++    case CSPCL_ERR_CSP_ZMQHUB_INIT:
++      LOGF_ERROR("CSP: Initialization failed: ZMQ hub interface init failed "
++                 "(host: '%s')",
++                 config->cspcl.zmqhub_addr);
++      break;
++    case CSPCL_ERR_CSP_CAN_INIT:
++      LOGF_ERROR("CSP: Initialization failed: CAN interface init failed (iface: '%s')",
++                 config->cspcl.can_iface);
++      break;
++    case CSPCL_ERR_CSP_CAN_NOT_SUPPORTED:
++      LOGF_ERROR("CSP: Initialization failed: CAN support not compiled in "
++                 "(iface: '%s')",
++                 config->cspcl.can_iface);
++      break;
++    case CSPCL_ERR_CSP_ROUTER:
++      LOG_ERROR("CSP: Initialization failed: CSP router task start failed");
++      break;
++    default:
++      LOGF_ERROR("CSP: Initialization failed (error %d)", ret);
++      break;
++    }
++    return NULL;
++  }
++  return &config->base;
++}
+diff --git a/ud3tn/include/cla/cla_csp.h b/ud3tn/include/cla/cla_csp.h
+new file mode 100644
+index 0000000..e7830f8
+--- /dev/null
++++ b/ud3tn/include/cla/cla_csp.h
+@@ -0,0 +1,88 @@
++// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
++/**
++ * @file cla_csp.h
++ * @brief CSP Convergence Layer Adapter for uD3TN
++ *
++ * This CLA enables Bundle Protocol 7 (BP7) bundles to be transmitted over
++ * CubeSat Space Protocol (CSP) using the CSPCL library.
++ *
++ * Architecture:
++ *   uD3TN BP7 → CLA_CSP → CSPCL → CSP UDP → Physical (CAN/ZMQHUB)
++ *
++ * Configuration format:
++ *   csp:<local_addr>,<csp_port>
++ *   Example: csp:1,10
++ *
++ * CLA Address format:
++ *   csp:<dest_addr>,<port>
++ *   Example: csp:2,10
++ *
++ * @version 1.0
++ */
++
++#ifndef CLA_CSP_H
++#define CLA_CSP_H
++
++#include <stddef.h>
++#include <stdint.h>
++
++#include "cla/cla.h"
++#include "ud3tn/bundle.h"
++#include "ud3tn/bundle_processor.h"
++
++/**
++ * @brief Create a CSP CLA instance
++ *
++ * @param options       Array of configuration options [local_addr, csp_port]
++ * @param option_count  Number of options (must be 2)
++ * @param bundle_agent_interface  Bundle agent interface
++ * @return Pointer to CLA config, or NULL on failure
++ */
++struct cla_config *csp_cla_create(const char *const options[], const size_t option_count,
++                                  const struct bundle_agent_interface *bundle_agent_interface);
++
++/* INTERNAL API */
++
++struct csp_link;
++
++/**
++ * @brief Get maximum bundle size for CSP CLA
++ */
++size_t csp_cla_mbs_get(struct cla_config *const config);
++
++/**
++ * @brief Reset parsers for CSP link
++ */
++void csp_cla_reset_parsers(struct cla_link *link);
++
++/**
++ * @brief Forward data to bundle parser
++ */
++size_t csp_cla_forward_to_specific_parser(struct cla_link *link, const uint8_t *buffer,
++                                          size_t length);
++
++/**
++ * @brief Begin sending a packet
++ */
++enum cla_begin_packet_result csp_cla_begin_packet(struct cla_link *link,
++                                                  const struct bundle *const bundle, size_t length,
++                                                  char *cla_addr);
++
++/**
++ * @brief End sending a packet
++ */
++enum ud3tn_result csp_cla_end_packet(struct cla_link *link);
++
++/**
++ * @brief Send packet data
++ */
++enum ud3tn_result csp_cla_send_packet_data(struct cla_link *link, const void *data,
++                                           const size_t length);
++
++/**
++ * @brief Read data from CSP
++ */
++enum ud3tn_result csp_cla_read(struct cla_link *link, uint8_t *buffer, size_t length,
++                               size_t *bytes_read);
++
++#endif /* CLA_CSP_H */
+diff --git a/ud3tn/external/cspcl/cspcl.c b/ud3tn/external/cspcl/cspcl.c
+new file mode 100644
+index 0000000..841497c
+--- /dev/null
++++ b/ud3tn/external/cspcl/cspcl.c
+@@ -0,0 +1,624 @@
++/**
++ * @file cspcl.c
++ * @brief CSPCL - CubeSat Space Protocol Convergence Layer Implementation
++ *
++ * This implementation uses CSP's SFP (Simple Fragmentation Protocol)
++ * for automatic fragmentation and reassembly of bundles.
++ *
++ * @version 2.0
++ */
++
++#include "cspcl.h"
++#include "cspcl_config.h"
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++#ifndef FREERTOS
++#include <time.h>
++#endif
++
++/* CSP library headers */
++#include <csp/arch/csp_malloc.h>
++#include <csp/csp.h>
++/* libcsp headers for direct CSP stack control */
++#include <csp/csp_rtable.h>
++#include <csp/interfaces/csp_if_zmqhub.h>
++/* CAN interface support - requires libcsp built with CAN driver */
++#ifdef CSP_HAVE_LIBSOCKETCAN
++#include <csp/drivers/can_socketcan.h>
++#include <csp/interfaces/csp_if_can.h>
++#endif
++
++/*===========================================================================*/
++/* Internal Pool Helpers                                                     */
++/*===========================================================================*/
++
++static int cspcl_pool_lock(cspcl_conn_pool_t *pool) {
++#ifndef FREERTOS
++  return pthread_mutex_lock(&pool->lock);
++#else
++  return xSemaphoreTake(pool->lock, portMAX_DELAY) == pdTRUE ? 0 : -1;
++#endif
++}
++
++static int cspcl_pool_unlock(cspcl_conn_pool_t *pool) {
++#ifndef FREERTOS
++  return pthread_mutex_unlock(&pool->lock);
++#else
++  return xSemaphoreGive(pool->lock) == pdTRUE ? 0 : -1;
++#endif
++}
++
++static csp_conn_t *cspcl_pool_get_or_create_locked(cspcl_conn_pool_t *pool,
++                                                   uint8_t dest_addr,
++                                                   uint8_t dest_port) {
++  pool->tick++;
++  size_t free_slot = CSPCL_CONN_POOL_SIZE;
++
++  for (size_t i = 0; i < CSPCL_CONN_POOL_SIZE; i++) {
++    if (!pool->entries[i].used) {
++      if (free_slot == CSPCL_CONN_POOL_SIZE) {
++        free_slot = i;
++      }
++      continue;
++    }
++
++    if (pool->entries[i].dest_addr == dest_addr &&
++        pool->entries[i].dest_port == dest_port &&
++        pool->entries[i].conn != NULL) {
++#ifndef FREERTOS
++      /* Age-based invalidation (disabled when max_conn_age_ms == 0) */
++      if (pool->max_conn_age_ms > 0) {
++        uint32_t age_s =
++            (uint32_t)(time(NULL) - pool->entries[i].connected_at);
++        if (age_s > pool->max_conn_age_ms / 1000u) {
++          csp_close(pool->entries[i].conn);
++          pool->entries[i].conn = NULL;
++          pool->entries[i].used = false;
++          pool->stats.invalidations++;
++          if (free_slot == CSPCL_CONN_POOL_SIZE) {
++            free_slot = i;
++          }
++          break; /* Fall through to create a fresh connection */
++        }
++      }
++#endif
++      /* Cache hit */
++      pool->entries[i].last_used = pool->tick;
++      pool->stats.hits++;
++      return pool->entries[i].conn;
++    }
++  }
++
++  csp_conn_t *conn = csp_connect(CSP_PRIO_NORM, dest_addr, dest_port,
++                                 CSPCL_CSP_TIMEOUT_MS, CSP_O_NONE);
++  if (conn == NULL) {
++    pool->stats.connect_failures++;
++    return NULL;
++  }
++
++  /* LRU eviction when pool is full */
++  if (free_slot == CSPCL_CONN_POOL_SIZE) {
++    size_t lru = 0;
++    uint32_t oldest = pool->entries[0].last_used;
++    for (size_t i = 1; i < CSPCL_CONN_POOL_SIZE; i++) {
++      if (pool->entries[i].last_used < oldest) {
++        oldest = pool->entries[i].last_used;
++        lru = i;
++      }
++    }
++    free_slot = lru;
++    if (pool->entries[free_slot].conn != NULL) {
++      csp_close(pool->entries[free_slot].conn);
++    }
++    pool->stats.evictions++;
++    CSPCL_LOG("pool full, evicted LRU entry (addr=%u port=%u)",
++              (unsigned)pool->entries[free_slot].dest_addr,
++              (unsigned)pool->entries[free_slot].dest_port);
++  }
++
++  pool->entries[free_slot].used = true;
++  pool->entries[free_slot].dest_addr = dest_addr;
++  pool->entries[free_slot].dest_port = dest_port;
++  pool->entries[free_slot].conn = conn;
++  pool->entries[free_slot].last_used = pool->tick;
++#ifndef FREERTOS
++  pool->entries[free_slot].connected_at = time(NULL);
++#endif
++  pool->stats.misses++;
++  return conn;
++}
++
++static void cspcl_pool_invalidate_locked(cspcl_conn_pool_t *pool,
++                                         uint8_t dest_addr, uint8_t dest_port) {
++  for (size_t i = 0; i < CSPCL_CONN_POOL_SIZE; i++) {
++    if (!pool->entries[i].used) {
++      continue;
++    }
++
++    if (pool->entries[i].dest_addr == dest_addr &&
++        pool->entries[i].dest_port == dest_port) {
++      if (pool->entries[i].conn != NULL) {
++        csp_close(pool->entries[i].conn);
++      }
++      pool->entries[i].conn = NULL;
++      pool->entries[i].used = false;
++      pool->stats.invalidations++;
++      return;
++    }
++  }
++}
++
++static void cspcl_release_conn_pool(cspcl_t *cspcl) {
++  if (cspcl == NULL) {
++    return;
++  }
++
++  cspcl_conn_pool_cleanup(&cspcl->conn_pool);
++}
++
++/*===========================================================================*/
++/* Initialization Functions                                                   */
++/*===========================================================================*/
++
++cspcl_error_t cspcl_init(cspcl_t *cspcl) {
++  if (cspcl == NULL) {
++    return CSPCL_ERR_INVALID_PARAM;
++  }
++
++  if (!cspcl->initialized) {
++    cspcl_error_t pool_err = cspcl_conn_pool_init(&cspcl->conn_pool);
++    if (pool_err != CSPCL_OK) {
++      return pool_err;
++    }
++
++    /* Configure CSP */
++    csp_conf_t csp_conf;
++    csp_conf_get_defaults(&csp_conf);
++    csp_conf.address = cspcl->local_addr;
++    csp_conf.hostname = "ud3tn";
++    csp_conf.model = "csp-cla";
++    csp_conf.revision = "1.0";
++    csp_conf.conn_max = CSPCL_CONN_POOL_SIZE + 4; /* Must exceed pool size */
++    csp_conf.conn_queue_length = 100;
++    csp_conf.fifo_length = 25;
++    csp_conf.port_max_bind = 31;
++    csp_conf.rdp_max_window = 20;
++    csp_conf.buffers = 100;
++    csp_conf.buffer_data_size = 256;
++
++    int ret = csp_init(&csp_conf);
++    /* Initialize the CSP stack */
++    if (ret != CSP_ERR_NONE) {
++      cspcl_release_conn_pool(cspcl);
++      return CSPCL_ERR_CSP_STACK_INIT;
++    }
++
++    /* Initialize the selected interface */
++    switch (cspcl->iface_type) {
++    case CSP_IFACE_ZMQHUB:
++      ret = csp_zmqhub_init(cspcl->local_addr, cspcl->zmqhub_addr, 0,
++                            &cspcl->active_iface);
++      if (ret != CSP_ERR_NONE) {
++        cspcl_release_conn_pool(cspcl);
++        return CSPCL_ERR_CSP_ZMQHUB_INIT;
++      }
++      break;
++
++    case CSP_IFACE_CAN:
++#ifdef CSP_HAVE_LIBSOCKETCAN
++      ret = csp_can_socketcan_open_and_add_interface(
++          cspcl->can_iface, /* CAN device name (can0, vcan0, etc.) */
++          cspcl->can_iface, /* CSP interface name */
++          0,                /* Bitrate (0 = don't change) */
++          true,             /* Promisc mode */
++          &cspcl->active_iface);
++      if (ret != CSP_ERR_NONE) {
++        cspcl_release_conn_pool(cspcl);
++        return CSPCL_ERR_CSP_CAN_INIT;
++      }
++#else
++      cspcl_release_conn_pool(cspcl);
++      return CSPCL_ERR_CSP_CAN_NOT_SUPPORTED;
++#endif
++      break;
++
++    case CSP_IFACE_LOOPBACK:
++      cspcl->active_iface = NULL; /* Will use default loopback */
++      break;
++    }
++
++    /* Set default route via active interface */
++    if (cspcl->active_iface != NULL) {
++      csp_rtable_set(CSP_DEFAULT_ROUTE, 0, cspcl->active_iface, CSP_NODE_MAC);
++    }
++
++    /* Start the CSP router task */
++    ret = csp_route_start_task(500, 0);
++    if (ret != CSP_ERR_NONE) {
++      cspcl_release_conn_pool(cspcl);
++      return CSPCL_ERR_CSP_ROUTER;
++    }
++
++    cspcl->initialized = true;
++  }
++
++  /* Open RX socket (bind to BP port once) */
++  cspcl_error_t err = cspcl_open_rx_socket(cspcl);
++  if (err != CSPCL_OK) {
++    cspcl_cleanup(cspcl);
++    return err;
++  }
++
++  return CSPCL_OK;
++}
++
++void cspcl_cleanup(cspcl_t *cspcl) {
++  if (cspcl == NULL) {
++    return;
++  }
++
++  /* Close server socket */
++  cspcl_close_rx_socket(cspcl);
++  cspcl_release_conn_pool(cspcl);
++
++  cspcl->initialized = false;
++}
++
++cspcl_error_t cspcl_conn_pool_init(cspcl_conn_pool_t *pool) {
++  if (pool == NULL) {
++    return CSPCL_ERR_INVALID_PARAM;
++  }
++
++  memset(pool, 0, sizeof(*pool));
++
++#ifndef FREERTOS
++  if (pthread_mutex_init(&pool->lock, NULL) != 0) {
++    return CSPCL_ERR_NO_MEMORY;
++  }
++#else
++  pool->lock = xSemaphoreCreateMutex();
++  if (pool->lock == NULL) {
++    return CSPCL_ERR_NO_MEMORY;
++  }
++#endif
++
++  /* Read max connection age from environment variable */
++  const char *max_age_env = getenv("CSPCL_MAX_CONN_AGE_MS");
++  if (max_age_env != NULL) {
++    char *endptr;
++    long max_age_val = strtol(max_age_env, &endptr, 10);
++    
++    /* Validate that the entire string was consumed and value is in valid range */
++    if (*endptr == '\0' && max_age_val >= 0 && max_age_val <= (long)UINT32_MAX) {
++      pool->max_conn_age_ms = (uint32_t)max_age_val;
++      CSPCL_DEBUG("Connection pool max age set to %u ms from CSPCL_MAX_CONN_AGE_MS", 
++                  pool->max_conn_age_ms);
++    } else {
++      CSPCL_WARN("Invalid CSPCL_MAX_CONN_AGE_MS value '%s', ignoring (must be 0-%u)", 
++                 max_age_env, UINT32_MAX);
++    }
++  }
++
++  pool->initialized = true;
++  return CSPCL_OK;
++}
++
++void cspcl_conn_pool_cleanup(cspcl_conn_pool_t *pool) {
++  if (pool == NULL || !pool->initialized) {
++    return;
++  }
++
++  if (cspcl_pool_lock(pool) != 0) {
++    return;
++  }
++
++  for (size_t i = 0; i < CSPCL_CONN_POOL_SIZE; i++) {
++    if (pool->entries[i].used && pool->entries[i].conn != NULL) {
++      csp_close(pool->entries[i].conn);
++    }
++    pool->entries[i].used = false;
++    pool->entries[i].conn = NULL;
++  }
++
++  /* Set initialized=false while holding the lock so concurrent senders
++   * that observe it are guaranteed all connections are already closed. */
++  pool->initialized = false;
++
++  if (cspcl_pool_unlock(pool) != 0) {
++    CSPCL_LOG("pool unlock failed during cleanup");
++  }
++
++#ifndef FREERTOS
++  pthread_mutex_destroy(&pool->lock);
++#else
++  vSemaphoreDelete(pool->lock);
++  pool->lock = NULL;
++#endif
++}
++
++/*===========================================================================*/
++/* Bundle Transmission Functions                                              */
++/*===========================================================================*/
++
++cspcl_error_t cspcl_send_bundle(cspcl_t *cspcl, const uint8_t *bundle,
++                                size_t len, uint8_t dest_addr,
++                                uint8_t dest_port) {
++  if (cspcl == NULL || bundle == NULL || len == 0) {
++    return CSPCL_ERR_INVALID_PARAM;
++  }
++
++  if (!cspcl->initialized) {
++    return CSPCL_ERR_NOT_INITIALIZED;
++  }
++
++  if (len > CSPCL_MAX_BUNDLE_SIZE) {
++    return CSPCL_ERR_BUNDLE_TOO_LARGE;
++  }
++
++  cspcl_conn_pool_t *pool = &cspcl->conn_pool;
++  if (!pool->initialized) {
++    return CSPCL_ERR_NOT_INITIALIZED;
++  }
++
++  if (cspcl_pool_lock(pool) != 0) {
++    return CSPCL_ERR_CONNECTION;
++  }
++
++  /* Reuse pooled connection or open a new one on miss */
++  csp_conn_t *conn =
++      cspcl_pool_get_or_create_locked(pool, dest_addr, dest_port);
++  if (conn == NULL) {
++    (void)cspcl_pool_unlock(pool);
++    return CSPCL_ERR_CONNECTION;
++  }
++
++  /* Use CSP's SFP to send the bundle with automatic fragmentation */
++  int ret = csp_sfp_send(conn, bundle, (unsigned int)len, CSPCL_MAX_PAYLOAD,
++                         CSPCL_CSP_TIMEOUT_MS);
++
++  if (ret != CSP_ERR_NONE) {
++    cspcl_pool_invalidate_locked(pool, dest_addr, dest_port);
++  }
++
++  if (cspcl_pool_unlock(pool) != 0) {
++    CSPCL_LOG("pool unlock failed after send");
++  }
++
++  if (ret != CSP_ERR_NONE) {
++    return CSPCL_ERR_CSP_SEND;
++  }
++
++  return CSPCL_OK;
++}
++
++/**
++ * @brief Open and bind a server socket for incoming connections
++ *
++ * This should be called once during initialization to create
++ * a socket bound to the BP port for receiving bundle connections.
++ *
++ * @param cspcl CSPCL instance
++ * @return CSPCL_OK on success, error code otherwise
++ */
++cspcl_error_t cspcl_open_rx_socket(cspcl_t *cspcl) {
++  if (cspcl == NULL || !cspcl->initialized) {
++    return CSPCL_ERR_INVALID_PARAM;
++  }
++
++  if (cspcl->rx_socket != NULL) {
++    return CSPCL_OK; /* Already open */
++  }
++
++  /* Create socket for connection-oriented mode */
++  csp_socket_t *sock = csp_socket(CSP_SO_NONE);
++  if (sock == NULL) {
++    return CSPCL_ERR_NO_MEMORY;
++  }
++
++  /* Bind to BP port */
++  int bind_result = csp_bind(sock, cspcl->csp_port);
++  if (bind_result != CSP_ERR_NONE) {
++    csp_close(sock);
++    return CSPCL_ERR_CSP_RECV;
++  }
++
++  /* Set socket to listen mode */
++  int listen_result = csp_listen(sock, 5);
++  if (listen_result != CSP_ERR_NONE) {
++    csp_close(sock);
++    return CSPCL_ERR_CSP_RECV;
++  }
++
++  cspcl->rx_socket = sock;
++  return CSPCL_OK;
++}
++
++/**
++ * @brief Close the server socket
++ *
++ * @param cspcl CSPCL instance
++ */
++void cspcl_close_rx_socket(cspcl_t *cspcl) {
++  if (cspcl != NULL && cspcl->rx_socket != NULL) {
++    csp_close((csp_socket_t *)cspcl->rx_socket);
++    cspcl->rx_socket = NULL;
++  }
++}
++
++cspcl_error_t cspcl_recv_bundle(cspcl_t *cspcl, uint8_t *bundle, size_t *len,
++                                uint8_t *src_addr, uint8_t *src_port,
++                                uint32_t timeout_ms) {
++  if (cspcl == NULL || bundle == NULL || len == NULL) {
++    return CSPCL_ERR_INVALID_PARAM;
++  }
++
++  if (!cspcl->initialized) {
++    return CSPCL_ERR_NOT_INITIALIZED;
++  }
++
++  size_t max_len = *len;
++  *len = 0;
++
++  /* RX socket should already be open from initialization */
++  if (cspcl->rx_socket == NULL) {
++    return CSPCL_ERR_NOT_INITIALIZED;
++  }
++
++  /* Accept incoming connection */
++  csp_conn_t *conn =
++      csp_accept((csp_socket_t *)cspcl->rx_socket,
++                 timeout_ms > 0 ? timeout_ms : CSPCL_CSP_TIMEOUT_MS);
++  if (conn == NULL) {
++    return CSPCL_ERR_TIMEOUT;
++  }
++
++  /* Get source address from connection */
++  uint8_t pkt_src_addr = csp_conn_src(conn);
++  uint8_t pkt_src_port = csp_conn_sport(conn);
++
++  /* Use CSP's SFP to receive the bundle with automatic reassembly */
++  void *data = NULL;
++  int datasize = 0;
++
++  int ret = csp_sfp_recv(conn, &data, &datasize, CSPCL_SFP_TIMEOUT_MS);
++
++  /* Close connection */
++  csp_close(conn);
++
++  if (ret != CSP_ERR_NONE) {
++    if (data != NULL) {
++      csp_free(data);
++    }
++    if (ret == CSP_ERR_TIMEDOUT) {
++      return CSPCL_ERR_TIMEOUT;
++    }
++    return CSPCL_ERR_SFP;
++  }
++
++  if (data == NULL || datasize <= 0) {
++    return CSPCL_ERR_CSP_RECV;
++  }
++
++  /* Check if bundle fits in output buffer */
++  if ((size_t)datasize > max_len) {
++    csp_free(data);
++    return CSPCL_ERR_NO_MEMORY;
++  }
++
++  /* Copy received bundle to output buffer */
++  memcpy(bundle, data, (size_t)datasize);
++  *len = (size_t)datasize;
++
++  if (src_addr != NULL) {
++    *src_addr = pkt_src_addr;
++  }
++  if (src_port != NULL) {
++    *src_port = pkt_src_port;
++  }
++
++  /* Free SFP-allocated memory */
++  csp_free(data);
++
++  return CSPCL_OK;
++}
++
++void cspcl_conn_pool_get_stats(const cspcl_conn_pool_t *pool,
++                               cspcl_conn_pool_stats_t *stats) {
++  if (pool == NULL || stats == NULL) {
++    return;
++  }
++  *stats = pool->stats;
++}
++
++/*===========================================================================*/
++/* Address Translation Functions                                              */
++/*===========================================================================*/
++
++uint8_t cspcl_endpoint_to_addr(const char *endpoint_id) {
++  if (endpoint_id == NULL) {
++    return 0;
++  }
++
++  /* Parse IPN scheme: ipn:X.Y → CSP address X */
++  if (strncmp(endpoint_id, "ipn:", 4) == 0) {
++    int node = 0;
++    if (sscanf(endpoint_id + 4, "%d", &node) == 1) {
++      if (node >= 0 && node <= 255) {
++        return (uint8_t)node;
++      }
++    }
++  }
++
++  /* Parse DTN scheme: dtn://nodeX/... → CSP address X */
++  if (strncmp(endpoint_id, "dtn://node", 10) == 0) {
++    int node = 0;
++    if (sscanf(endpoint_id + 10, "%d", &node) == 1) {
++      if (node >= 0 && node <= 255) {
++        return (uint8_t)node;
++      }
++    }
++  }
++
++  return 0;
++}
++
++cspcl_error_t cspcl_addr_to_endpoint(uint8_t addr, char *endpoint, size_t len) {
++  if (endpoint == NULL || len < 12) {
++    return CSPCL_ERR_INVALID_PARAM;
++  }
++
++  /* Generate IPN endpoint: CSP address X → ipn:X.0 */
++  int written = snprintf(endpoint, len, "ipn:%d.0", addr);
++  if (written < 0 || (size_t)written >= len) {
++    return CSPCL_ERR_INVALID_PARAM;
++  }
++
++  return CSPCL_OK;
++}
++
++/*===========================================================================*/
++/* Utility Functions                                                          */
++/*===========================================================================*/
++
++const char *cspcl_strerror(cspcl_error_t err) {
++  switch (err) {
++  case CSPCL_OK:
++    return "Success";
++  case CSPCL_ERR_INVALID_PARAM:
++    return "Invalid parameter";
++  case CSPCL_ERR_NO_MEMORY:
++    return "Memory allocation failed";
++  case CSPCL_ERR_BUNDLE_TOO_LARGE:
++    return "Bundle exceeds maximum size";
++  case CSPCL_ERR_CSP_SEND:
++    return "CSP send failed";
++  case CSPCL_ERR_CSP_RECV:
++    return "CSP receive failed";
++  case CSPCL_ERR_TIMEOUT:
++    return "Operation timed out";
++  case CSPCL_ERR_SFP:
++    return "SFP fragmentation/reassembly failed";
++  case CSPCL_ERR_NOT_INITIALIZED:
++    return "CSPCL not initialized";
++  case CSPCL_ERR_CONNECTION:
++    return "CSP connection failed";
++  case CSPCL_ERR_CSPINIT:
++    return "CSP initialization failed";
++  case CSPCL_ERR_CSP_STACK_INIT:
++    return "CSP stack initialization failed";
++  case CSPCL_ERR_CSP_ZMQHUB_INIT:
++    return "CSP ZMQ hub interface initialization failed";
++  case CSPCL_ERR_CSP_CAN_INIT:
++    return "CSP CAN interface initialization failed";
++  case CSPCL_ERR_CSP_CAN_NOT_SUPPORTED:
++    return "CSP CAN interface not supported (rebuild libcsp with CAN driver)";
++  case CSPCL_ERR_CSP_ROUTER:
++    return "CSP router task start failed";
++  case CSPCL_ERR_POOL_FULL:
++    return "Connection pool full, LRU eviction was performed";
++  default:
++    return "Unknown error";
++  }
++}
+diff --git a/ud3tn/external/cspcl/cspcl.h b/ud3tn/external/cspcl/cspcl.h
+new file mode 100644
+index 0000000..f002c57
+--- /dev/null
++++ b/ud3tn/external/cspcl/cspcl.h
+@@ -0,0 +1,319 @@
++/**
++ * @file cspcl.h
++ * @brief CSPCL - CubeSat Space Protocol Convergence Layer for Bundle Protocol
++ *
++ * This convergence layer adapter enables BP7 bundles to be transmitted over
++ * CSP (CubeSat Space Protocol) using UDP mode (connectionless, unreliable).
++ *
++ * Architecture:
++ *   BP7 Bundle → CSPCL → CSP UDP → Physical (CAN/ZMQHUB/SocketCAN)
++ *
++ * @version 1.0
++ * @note Designed for CSP v1.6 (not v2)
++ */
++
++#ifndef CSPCL_H
++#define CSPCL_H
++#include <stdbool.h>
++#include <stddef.h>
++#include <stdint.h>
++#ifndef FREERTOS
++#include <pthread.h>
++#include <time.h>
++#else
++#include <FreeRTOS.h>
++#include <semphr.h>
++#endif
++
++#include <csp/csp.h>
++#include <csp/csp_types.h>
++/* libcsp headers for direct CSP stack control */
++#include <csp/csp_rtable.h>
++#include <csp/interfaces/csp_if_zmqhub.h>
++/* CAN interface support - requires libcsp built with CAN driver */
++#ifdef CSP_HAVE_LIBSOCKETCAN
++#include <csp/drivers/can_socketcan.h>
++#include <csp/interfaces/csp_if_can.h>
++
++#endif
++#define CSP_IFACE_PARAM_MAX 64
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/*===========================================================================*/
++/* Configuration Constants                                                    */
++/*===========================================================================*/
++
++/** Dedicated CSP port for Bundle Protocol traffic */
++#define CSPCL_PORT_BP 10
++
++/** Maximum CSP MTU (typical CAN-based CSP MTU) */
++#define CSPCL_CSP_MTU 256
++
++/** SFP header size (offset + totalsize = 8 bytes) */
++#define CSPCL_SFP_HEADER_SIZE 8
++
++/** Maximum payload per CSP packet when using SFP */
++#define CSPCL_MAX_PAYLOAD (CSPCL_CSP_MTU - CSPCL_SFP_HEADER_SIZE)
++
++/** Maximum bundle size supported */
++#define CSPCL_MAX_BUNDLE_SIZE 65535
++
++/** Maximum number of cached outbound CSP connections */
++#define CSPCL_CONN_POOL_SIZE 16
++
++/** CSP connection timeout in milliseconds */
++#define CSPCL_CSP_TIMEOUT_MS 1000
++
++/** CSP SFP receive timeout in milliseconds */
++#define CSPCL_SFP_TIMEOUT_MS 5000
++
++/*===========================================================================*/
++/* Error Codes                                                                */
++/*===========================================================================*/
++
++typedef enum {
++  CSPCL_OK = 0,                    /**< Success */
++  CSPCL_ERR_INVALID_PARAM,         /**< Invalid parameter */
++  CSPCL_ERR_NO_MEMORY,             /**< Memory allocation failed */
++  CSPCL_ERR_BUNDLE_TOO_LARGE,      /**< Bundle exceeds maximum size */
++  CSPCL_ERR_CSP_SEND,              /**< CSP send failed */
++  CSPCL_ERR_CSP_RECV,              /**< CSP receive failed */
++  CSPCL_ERR_TIMEOUT,               /**< Operation timed out */
++  CSPCL_ERR_SFP,                   /**< SFP fragmentation/reassembly error */
++  CSPCL_ERR_NOT_INITIALIZED,       /**< CSPCL not initialized */
++  CSPCL_ERR_CONNECTION,            /**< CSP connection error */
++  CSPCL_ERR_CSPINIT,               /**< CSP init error (generic) */
++  CSPCL_ERR_CSP_STACK_INIT,        /**< csp_init() failed */
++  CSPCL_ERR_CSP_ZMQHUB_INIT,       /**< ZMQ hub interface init failed */
++  CSPCL_ERR_CSP_CAN_INIT,          /**< CAN interface init failed */
++  CSPCL_ERR_CSP_CAN_NOT_SUPPORTED, /**< CAN support not compiled in */
++  CSPCL_ERR_CSP_ROUTER,            /**< CSP router task start failed */
++  CSPCL_ERR_POOL_FULL              /**< Connection pool full, LRU eviction was forced */
++} cspcl_error_t;
++
++enum csp_iface_type {
++  CSP_IFACE_ZMQHUB,  /* ZeroMQ hub - for testing/ground segment */
++  CSP_IFACE_CAN,     /* CAN bus - for space segment */
++  CSP_IFACE_LOOPBACK /* Loopback - for local testing */
++};
++
++/*===========================================================================*/
++/* Connection Pool                                                           */
++/*===========================================================================*/
++
++/**
++ * @brief Pool operation statistics counters
++ */
++typedef struct {
++  uint32_t hits;             /**< Cache hits: existing connection reused */
++  uint32_t misses;           /**< Cache misses: new connection created */
++  uint32_t evictions;        /**< LRU evictions due to pool full */
++  uint32_t connect_failures; /**< Failed csp_connect() calls */
++  uint32_t invalidations;    /**< Connections invalidated (send error or age) */
++} cspcl_conn_pool_stats_t;
++
++typedef struct {
++  bool used;
++  uint8_t dest_addr;
++  uint8_t dest_port;
++  csp_conn_t *conn;
++  uint32_t last_used; /**< Monotonic tick at last access, for LRU eviction */
++#ifndef FREERTOS
++  time_t connected_at; /**< Wall-clock time of connection creation */
++#endif
++} cspcl_conn_pool_entry_t;
++
++typedef struct {
++  bool initialized;
++#ifndef FREERTOS
++  pthread_mutex_t lock;
++#else
++  SemaphoreHandle_t lock;
++#endif
++  cspcl_conn_pool_entry_t entries[CSPCL_CONN_POOL_SIZE];
++  uint32_t tick;            /**< Monotonic counter incremented on each access */
++  uint32_t max_conn_age_ms; /**< Max connection age in ms (0 = disabled) */
++  cspcl_conn_pool_stats_t stats; /**< Pool operation counters */
++} cspcl_conn_pool_t;
++
++/*===========================================================================*/
++/* CSPCL Instance                                                             */
++/*===========================================================================*/
++
++/**
++ * @brief CSPCL instance configuration and state
++ *
++ * Uses CSP's SFP (Simple Fragmentation Protocol) for automatic
++ * fragmentation and reassembly of bundles.
++ */
++typedef struct {
++  bool initialized;   /**< Instance is initialized */
++  uint8_t local_addr; /**< Local CSP address */
++  void *
++      rx_socket; /**< Server socket for accepting connections (csp_socket_t*) */
++
++  /* CSP port for BP traffic */
++  uint8_t csp_port;
++
++  /* Interface selection */
++  enum csp_iface_type iface_type;
++
++  /* ZMQHUB: broker host (e.g. "localhost" or "192.168.1.10") */
++  char zmqhub_addr[CSP_IFACE_PARAM_MAX];
++
++  /* CAN: SocketCAN interface name (e.g. "vcan0" or "can0") */
++  char can_iface[CSP_IFACE_PARAM_MAX];
++
++  /* Internal outbound CSP connection pool */
++  cspcl_conn_pool_t conn_pool;
++
++  csp_iface_t *active_iface;
++} cspcl_t;
++
++/*===========================================================================*/
++/* Initialization Functions                                                   */
++/*===========================================================================*/
++
++/**
++ * @brief Initialize the CSPCL instance
++ *
++ * @param cspcl     Pointer to CSPCL instance
++ * @param local_addr Local CSP address for this node
++ * @return CSPCL_OK on success, error code otherwise
++ */
++cspcl_error_t cspcl_init(cspcl_t *cspcl);
++
++/**
++ * @brief Cleanup and free CSPCL resources
++ *
++ * @param cspcl     Pointer to CSPCL instance
++ */
++void cspcl_cleanup(cspcl_t *cspcl);
++
++/**
++ * @brief Initialize a connection pool used for outbound bundle traffic
++ *
++ * @param pool      Pointer to pool instance
++ * @return CSPCL_OK on success, error code otherwise
++ */
++cspcl_error_t cspcl_conn_pool_init(cspcl_conn_pool_t *pool);
++
++/**
++ * @brief Close all cached connections and release pool resources
++ *
++ * @param pool      Pointer to pool instance
++ */
++void cspcl_conn_pool_cleanup(cspcl_conn_pool_t *pool);
++
++/**
++ * @brief Read pool statistics counters
++ *
++ * @param pool   Pointer to pool instance (may be NULL — safe no-op)
++ * @param stats  Output buffer to fill
++ */
++void cspcl_conn_pool_get_stats(const cspcl_conn_pool_t *pool,
++                               cspcl_conn_pool_stats_t *stats);
++
++/*===========================================================================*/
++/* Bundle Transmission Functions                                              */
++/*===========================================================================*/
++
++/**
++ * @brief Send a BP7 bundle over CSP
++ *
++ * This function uses CSP's SFP (Simple Fragmentation Protocol) to
++ * automatically fragment large bundles if necessary and transmit
++ * them over a reliable CSP connection to the specified destination.
++ *
++ * @param cspcl     Pointer to CSPCL instance
++ * @param bundle    Serialized bundle data
++ * @param len       Bundle length in bytes
++ * @param dest_addr Destination CSP address
++ * @param dest_port Destination CSP port
++ * @return CSPCL_OK on success, error code otherwise
++ */
++cspcl_error_t cspcl_send_bundle(cspcl_t *cspcl, const uint8_t *bundle,
++                                size_t len, uint8_t dest_addr,
++                                uint8_t dest_port);
++
++/**
++ * @brief Receive a BP7 bundle from CSP
++ *
++ * This function accepts incoming CSP connections and uses SFP
++ * (Simple Fragmentation Protocol) to automatically reassemble
++ * fragmented bundles. It blocks until a complete bundle is received
++ * or timeout occurs.
++ *
++ * @param cspcl     Pointer to CSPCL instance
++ * @param bundle    Buffer for bundle data
++ * @param len       Pointer to buffer size (in) / received size (out)
++ * @param src_addr  Pointer to store source CSP address (can be NULL)
++ * @param timeout_ms Timeout in milliseconds (0 = no timeout)
++ * @return CSPCL_OK on success, error code otherwise
++ */
++cspcl_error_t cspcl_recv_bundle(cspcl_t *cspcl, uint8_t *bundle, size_t *len,
++                                uint8_t *src_addr, uint8_t *src_port,
++                                uint32_t timeout_ms);
++
++/**
++ * @brief Open and bind server socket for incoming connections
++ *
++ * Call this once during initialization to create a socket bound
++ * to the BP port for receiving bundle connections.
++ *
++ * @param cspcl     Pointer to CSPCL instance
++ * @return CSPCL_OK on success, error code otherwise
++ */
++cspcl_error_t cspcl_open_rx_socket(cspcl_t *cspcl);
++
++/**
++ * @brief Close the server socket
++ *
++ * @param cspcl     Pointer to CSPCL instance
++ */
++void cspcl_close_rx_socket(cspcl_t *cspcl);
++
++/*===========================================================================*/
++/* Address Translation Functions                                              */
++/*===========================================================================*/
++
++/**
++ * @brief Convert BP endpoint ID to CSP address
++ *
++ * Supports IPN scheme: ipn:X.Y → CSP address X
++ *
++ * @param endpoint_id BP endpoint ID string (e.g., "ipn:1.0")
++ * @return CSP address, or 0 on error
++ */
++uint8_t cspcl_endpoint_to_addr(const char *endpoint_id);
++
++/**
++ * @brief Convert CSP address to BP endpoint ID
++ *
++ * @param addr      CSP address
++ * @param endpoint  Buffer for endpoint ID string
++ * @param len       Buffer length
++ * @return CSPCL_OK on success, error code otherwise
++ */
++cspcl_error_t cspcl_addr_to_endpoint(uint8_t addr, char *endpoint, size_t len);
++
++/*===========================================================================*/
++/* Utility Functions                                                          */
++/*===========================================================================*/
++
++/**
++ * @brief Get error string for error code
++ *
++ * @param err Error code
++ * @return Human-readable error string
++ */
++const char *cspcl_strerror(cspcl_error_t err);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* CSPCL_H */
+diff --git a/ud3tn/external/cspcl/cspcl_config.h b/ud3tn/external/cspcl/cspcl_config.h
+new file mode 100644
+index 0000000..0b940a6
+--- /dev/null
++++ b/ud3tn/external/cspcl/cspcl_config.h
+@@ -0,0 +1,108 @@
++/**
++ * @file cspcl_config.h
++ * @brief CSPCL Configuration Options
++ *
++ * User-configurable options for the CSPCL convergence layer.
++ * Copy this file and modify values as needed for your platform.
++ */
++
++#ifndef CSPCL_CONFIG_H
++#define CSPCL_CONFIG_H
++
++/*===========================================================================*/
++/* Platform Selection                                                         */
++/*===========================================================================*/
++
++/**
++ * Select the platform/OS for time functions and threading.
++ * Uncomment ONE of the following:
++ */
++
++/* Linux/POSIX platform */
++#define CSPCL_PLATFORM_POSIX
++
++/* FreeRTOS platform */
++/* #define CSPCL_PLATFORM_FREERTOS */
++
++/*===========================================================================*/
++/* CSP Configuration                                                          */
++/*===========================================================================*/
++
++/** CSP port dedicated to Bundle Protocol traffic */
++#ifndef CSPCL_PORT_BP
++#define CSPCL_PORT_BP 10
++#endif
++
++/** CSP connection timeout in milliseconds */
++#ifndef CSPCL_CSP_TIMEOUT_MS
++#define CSPCL_CSP_TIMEOUT_MS 1000
++#endif
++
++/** CSP connection options for outbound connections (bitmask of CSP_O_*) */
++#ifndef CSPCL_CSP_CONN_OPTIONS
++#define CSPCL_CSP_CONN_OPTIONS CSP_O_RDP
++#endif
++
++/** CSP socket options for inbound server sockets (bitmask of CSP_SO_*) */
++#ifndef CSPCL_CSP_SOCKET_OPTIONS
++#define CSPCL_CSP_SOCKET_OPTIONS CSP_SO_RDPREQ
++#endif
++
++/*===========================================================================*/
++/* Fragmentation Configuration                                                */
++/*===========================================================================*/
++
++/**
++ * Maximum CSP MTU size
++ * Typical values:
++ *   - CAN: 256 bytes (8 bytes per CAN frame, fragmented by CSP)
++ *   - UART: 256 bytes
++ *   - TCP/IP: 1400 bytes
++ */
++#ifndef CSPCL_CSP_MTU
++#define CSPCL_CSP_MTU 256
++#endif
++
++/** Maximum bundle size supported (64KB) */
++#ifndef CSPCL_MAX_BUNDLE_SIZE
++#define CSPCL_MAX_BUNDLE_SIZE 65535
++#endif
++
++/** SFP header size (offset + totalsize = 8 bytes) */
++#ifndef CSPCL_SFP_HEADER_SIZE
++#define CSPCL_SFP_HEADER_SIZE 8
++#endif
++
++/** CSP SFP receive timeout in milliseconds */
++#ifndef CSPCL_SFP_TIMEOUT_MS
++#define CSPCL_SFP_TIMEOUT_MS 5000
++#endif
++
++/*===========================================================================*/
++/* Debug Configuration                                                        */
++/*===========================================================================*/
++
++/** Enable debug output */
++/* #define CSPCL_DEBUG */
++
++/** Enable verbose debug output */
++/* #define CSPCL_DEBUG_VERBOSE */
++
++#ifdef CSPCL_DEBUG
++#include <stdio.h>
++#define CSPCL_LOG(fmt, ...) printf("[CSPCL] " fmt "\n", ##__VA_ARGS__)
++#define CSPCL_DEBUG(fmt, ...) printf("[CSPCL DEBUG] " fmt "\n", ##__VA_ARGS__)
++#define CSPCL_WARN(fmt, ...) printf("[CSPCL WARN] " fmt "\n", ##__VA_ARGS__)
++#else
++#define CSPCL_LOG(fmt, ...)
++#define CSPCL_DEBUG(fmt, ...)
++#define CSPCL_WARN(fmt, ...)
++#endif
++
++#ifdef CSPCL_DEBUG_VERBOSE
++#define CSPCL_LOG_V(fmt, ...) printf("[CSPCL] " fmt "\n", ##__VA_ARGS__)
++#else
++#define CSPCL_LOG_V(fmt, ...)
++#endif
++
++#endif /* CSPCL_CONFIG_H */
