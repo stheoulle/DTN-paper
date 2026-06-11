@@ -19,6 +19,11 @@ asabr:
   router: "SpsnHybridParenting"
   contact-plan-path: "demo/alice.cp"
   local-node-id: "ipn:2.0"
+  eid-map:
+    "dtn://alice.dtn/": 0
+    "dtn://unibo.dtn/": 1
+    "dtn://hardy.dtn/": 2
+    "dtn://bob.dtn/": 3
 
 clas:
   - name: cspcl-can

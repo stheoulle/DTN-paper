@@ -70,7 +70,7 @@ uv sync --active
 git clone https://github.com/libcsp/libcsp.git
 cd libcsp
 git checkout v1.6
-python3.11 waf configure --enable-can-socketcan --enable-if-zmqhub
+python3.11 waf configure --enable-can-socketcan --enable-if-zmqhub --enable-rdp
 python3.11 waf build
 ```
 
@@ -148,7 +148,7 @@ cd ../..
 ```bash
 git clone -b feat/cspcl-v2 https://github.com/hugoponthieu/hardy.git 
 cd hardy
-
+git checkout feat/rdp
 # CSP_REPO_DIR and CSP_BUILD_DIR must point at the built libcsp:
 export CSP_REPO_DIR=$(pwd)/../libcsp
 export CSP_BUILD_DIR=$(pwd)/../libcsp/build
