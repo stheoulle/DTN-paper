@@ -1,30 +1,50 @@
-src/aap2_client.c     | 20 +++++++++--
- src/charon.c          |  5 +++
- src/config.c          |  6 ++++
- src/config.h          |  1 +
- src/proto/aap2.pb-c.c | 14 ++++----
- src/proto/aap2.pb-c.h | 98 +++++++++++++++++++++++++--------------------------
- src/tun.c             |  9 +++--
- 7 files changed, 92 insertions(+), 61 deletions(-)
+src/aap2_client.c |  38 ++++++++++++++++++++++++++++++++++++--
+ src/charon.c      |   5 +++++
+ src/config.c      |   6 ++++++
+ src/config.h      |   1 +
+ src/tun.c         |   9 ++++++---
+ 5 files changed, 54 insertions(+), 5 deletions(-)
 
 --- Changes ---
 
 src/aap2_client.c
-  @@ -416,11 +416,27 @@ int send_aap2(aap2_client *client, const char *dst_eid, uint8_t *payload,
+  @@ -322,6 +322,12 @@ int handle_aap2_response(uint8_t *message, uint64_t msg_size) {
+  +  if (!aap2_response) {
+  +    log_error("Failed to unpack AAPResponse");
+  +    free(message);
+  +    return -1;
+  +  }
+  +
+     log_info("%i", aap2_response->response_status);
+  +6 -0
+
+  @@ -416,11 +422,39 @@ int send_aap2(aap2_client *client, const char *dst_eid, uint8_t *payload,
   -  log_info("Configuration sent !");
   +  log_info("Bundle sent !");
      free(buf);
      free(eid);
-   
+
   -  return -1;
+  +  /* Wait up to 5 s for the ACK.  In BDM mode the ACK only arrives after
+  +   * asabr_bdm dispatches the bundle, so this can take a moment. */
+  +  struct timeval tv = { .tv_sec = 5, .tv_usec = 0 };
+  +  setsockopt(client->socket_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+  +
   +  uint64_t msg_size;
   +  if (recv_varint(client->socket_fd, &msg_size) < 0) {
-  +    log_error("Couldn't receive bundle ACK varint");
-  +    return -1;
+  +    log_warn("Bundle ACK not received within timeout — bundle is in flight");
+  +    tv.tv_sec = 0; tv.tv_usec = 0;
+  +    setsockopt(client->socket_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+  +    return 0;
   +  }
+  +
+  +  /* Reset to blocking for future use */
+  +  tv.tv_sec = 0; tv.tv_usec = 0;
+  +  setsockopt(client->socket_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+  +
   +  uint8_t *ack = malloc(msg_size);
-  +  if (recv_exact(client->socket_fd, ack, msg_size) < 0) {
-  +    log_error("Couldn't receive bundle ACK");
+  +  if (!ack || recv_exact(client->socket_fd, ack, msg_size) < 0) {
+  +    log_error("Couldn't receive bundle ACK body");
   +    free(ack);
   +    return -1;
   +  }
@@ -35,16 +55,16 @@ src/aap2_client.c
   +
   +  return 0;
    }
-   
+
    int send_response_status(aap2_client *client) {
-  +18 -2
+  +30 -2
 
 src/charon.c
   @@ -51,6 +51,9 @@ int charon_init(charon_tunnel *tunnel, charon_config *config) {
   +  if (tun_fd < 0) {
   +    return -1;
   +  }
-   
+
      tunnel->dtn_tx_interface = tx;
      tunnel->dtn_rx_interface = rx;
   @@ -101,6 +104,8 @@ void *_charon_listen_tun(void *arg) {
@@ -73,7 +93,7 @@ src/config.c
   +    config->tun_name = strdup("tun0");
      return config;
    }
-   
+
   @@ -48,5 +53,6 @@ void free_config(charon_config *config) {
   +    free(config->tun_name);
        free(config);
@@ -87,297 +107,6 @@ src/config.h
      int mtu;
    } charon_config;
   +1 -0
-
-src/proto/aap2.pb-c.c
-  @@ -519,7 +519,7 @@ static const ProtobufCFieldDescriptor aap2__aapmessage__field_descriptors[6] =
-  -    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-  +    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-       0,NULL,NULL    /* reserved1,reserved2, etc */
-     },
-     {
-  @@ -531,7 +531,7 @@ static const ProtobufCFieldDescriptor aap2__aapmessage__field_descriptors[6] =
-  -    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-  +    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-       0,NULL,NULL    /* reserved1,reserved2, etc */
-     },
-     {
-  @@ -543,7 +543,7 @@ static const ProtobufCFieldDescriptor aap2__aapmessage__field_descriptors[6] =
-  -    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-  +    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-       0,NULL,NULL    /* reserved1,reserved2, etc */
-     },
-     {
-  @@ -555,7 +555,7 @@ static const ProtobufCFieldDescriptor aap2__aapmessage__field_descriptors[6] =
-  -    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-  +    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-       0,NULL,NULL    /* reserved1,reserved2, etc */
-     },
-     {
-  @@ -567,7 +567,7 @@ static const ProtobufCFieldDescriptor aap2__aapmessage__field_descriptors[6] =
-  -    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-  +    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-       0,NULL,NULL    /* reserved1,reserved2, etc */
-     },
-     {
-  @@ -579,7 +579,7 @@ static const ProtobufCFieldDescriptor aap2__aapmessage__field_descriptors[6] =
-  -    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-  +    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-       0,NULL,NULL    /* reserved1,reserved2, etc */
-     },
-   };
-  @@ -810,7 +810,7 @@ static const ProtobufCFieldDescriptor aap2__bundle_adu__field_descriptors[7] =
-  -    PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
-  +    0 | PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
-       0,NULL,NULL    /* reserved1,reserved2, etc */
-     },
-     {
-  +7 -7
-
-src/proto/aap2.pb-c.h
-  @@ -9,24 +9,24 @@
-  -# error This file was generated by a newer version of protobuf-c which is incompatible with your libprotobuf-c headers. Please update your headers.
-  -#elif 1005002 < PROTOBUF_C_MIN_COMPILER_VERSION
-  -# error This file was generated by an older version of protobuf-c which is incompatible with your libprotobuf-c headers. Please regenerate this file with a newer version of protobuf-c.
-  +# error This file was generated by a newer version of protoc-c which is incompatible with your libprotobuf-c headers. Please update your headers.
-  +#elif 1003003 < PROTOBUF_C_MIN_COMPILER_VERSION
-  +# error This file was generated by an older version of protoc-c which is incompatible with your libprotobuf-c headers. Please regenerate this file with a newer version of protoc-c.
-   #endif
-   
-   
-  -typedef struct Aap2__AAPMessage Aap2__AAPMessage;
-  -typedef struct Aap2__Welcome Aap2__Welcome;
-  -typedef struct Aap2__ConnectionConfig Aap2__ConnectionConfig;
-  -typedef struct Aap2__BundleADU Aap2__BundleADU;
-  -typedef struct Aap2__Bundle Aap2__Bundle;
-  -typedef struct Aap2__BundleDispatchInfo Aap2__BundleDispatchInfo;
-  -typedef struct Aap2__DispatchEvent Aap2__DispatchEvent;
-  -typedef struct Aap2__Link Aap2__Link;
-  -typedef struct Aap2__Keepalive Aap2__Keepalive;
-  -typedef struct Aap2__AAPResponse Aap2__AAPResponse;
-  -typedef struct Aap2__DispatchResult Aap2__DispatchResult;
-  -typedef struct Aap2__DispatchResult__NextHopEntry Aap2__DispatchResult__NextHopEntry;
-  +typedef struct _Aap2__AAPMessage Aap2__AAPMessage;
-  +typedef struct _Aap2__Welcome Aap2__Welcome;
-  +typedef struct _Aap2__ConnectionConfig Aap2__ConnectionConfig;
-  +typedef struct _Aap2__BundleADU Aap2__BundleADU;
-  +typedef struct _Aap2__Bundle Aap2__Bundle;
-  +typedef struct _Aap2__BundleDispatchInfo Aap2__BundleDispatchInfo;
-  +typedef struct _Aap2__DispatchEvent Aap2__DispatchEvent;
-  +typedef struct _Aap2__Link Aap2__Link;
-  +typedef struct _Aap2__Keepalive Aap2__Keepalive;
-  +typedef struct _Aap2__AAPResponse Aap2__AAPResponse;
-  +typedef struct _Aap2__DispatchResult Aap2__DispatchResult;
-  +typedef struct _Aap2__DispatchResult__NextHopEntry Aap2__DispatchResult__NextHopEntry;
-   
-   
-   /* --- enums --- */
-  @@ -209,36 +209,37 @@ typedef enum {
-  -    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(AAP2__AAPMESSAGE__MSG__CASE)
-  +    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(AAP2__AAPMESSAGE__MSG)
-   } Aap2__AAPMessage__MsgCase;
-   
-   /*
-    * The outer AAP 2.0 message type that is always sent by the Initiator (the
-    * Client if configured with `is_subscriber == false`, otherwise the Server).
-    */
-  -struct  Aap2__AAPMessage
-  +struct  _Aap2__AAPMessage
-   {
-     ProtobufCMessage base;
-     Aap2__AAPMessage__MsgCase msg_case;
-     union {
-       /*
-  -     * Message transmitting a bundle ADU into either direction.
-  +     * Message sent by the Server at the start of a connection to
-  +     * communicate basic parameters.
-        */
-  -    Aap2__BundleADU *adu;
-  +    Aap2__Welcome *welcome;
-       /*
-        * Message sent by the Client to authenticate itself and configure the
-        * connection.
-        */
-       Aap2__ConnectionConfig *config;
-  +    /*
-  +     * Message transmitting a bundle ADU into either direction.
-  +     */
-  +    Aap2__BundleADU *adu;
-       /*
-        * Message informing a BDM Client about a relevant bundle status change,
-        * allowing it to be (re)dispatched in response.
-        */
-       Aap2__DispatchEvent *dispatch_event;
-  -    /*
-  -     * Call issued regularly to ensure the connection is still alive.
-  -     */
-  -    Aap2__Keepalive *keepalive;
-       /*
-        * Message for initiating or informing about CLA link status changes.
-        * This message is also issued multiple times by µD3TN at the start of a
-  @@ -246,22 +247,21 @@ struct  Aap2__AAPMessage
-  -     * Message sent by the Server at the start of a connection to
-  -     * communicate basic parameters.
-  +     * Call issued regularly to ensure the connection is still alive.
-        */
-  -    Aap2__Welcome *welcome;
-  +    Aap2__Keepalive *keepalive;
-     };
-   };
-   #define AAP2__AAPMESSAGE__INIT \
-    { PROTOBUF_C_MESSAGE_INIT (&aap2__aapmessage__descriptor) \
-  -, AAP2__AAPMESSAGE__MSG__NOT_SET, {0} }
-  +    , AAP2__AAPMESSAGE__MSG__NOT_SET, {0} }
-   
-   
-   /*
-    * Message sent by the Server at the start of a connection to
-    * communicate basic parameters.
-    */
-  -struct  Aap2__Welcome
-  +struct  _Aap2__Welcome
-   {
-     ProtobufCMessage base;
-     /*
-  @@ -273,14 +273,14 @@ struct  Aap2__Welcome
-  -, (char *)protobuf_c_empty_string }
-  +    , (char *)protobuf_c_empty_string }
-   
-   
-   /*
-    * Message sent by the Client to authenticate itself and configure the
-    * connection.
-    */
-  -struct  Aap2__ConnectionConfig
-  +struct  _Aap2__ConnectionConfig
-   {
-     ProtobufCMessage base;
-     /*
-  @@ -319,13 +319,13 @@ struct  Aap2__ConnectionConfig
-  -, 0, AAP2__AUTH_TYPE__AUTH_TYPE_DEFAULT, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0 }
-  +    , 0, AAP2__AUTH_TYPE__AUTH_TYPE_DEFAULT, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0 }
-   
-   
-   /*
-    * Message transmitting a bundle ADU into either direction.
-    */
-  -struct  Aap2__BundleADU
-  +struct  _Aap2__BundleADU
-   {
-     ProtobufCMessage base;
-     /*
-  @@ -367,14 +367,14 @@ struct  Aap2__BundleADU
-  -, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0, 0, 0, 0,NULL }
-  +    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0, 0, 0, 0,NULL }
-   
-   
-   /*
-    * Message informing a BDM Client about a received or newly-created
-    * bundle.
-    */
-  -struct  Aap2__Bundle
-  +struct  _Aap2__Bundle
-   {
-     ProtobufCMessage base;
-     /*
-  @@ -415,14 +415,14 @@ struct  Aap2__Bundle
-  -, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0, 0, 0, 0, 0, 0 }
-  +    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0, 0, 0, 0, 0, 0 }
-   
-   
-   /*
-    * Message providing more information about the bundle to be dispatched, e.g.,
-    * how large its wire representation and minimum fragment size are.
-    */
-  -struct  Aap2__BundleDispatchInfo
-  +struct  _Aap2__BundleDispatchInfo
-   {
-     ProtobufCMessage base;
-     /*
-  @@ -472,7 +472,7 @@ struct  Aap2__BundleDispatchInfo
-  -, 0, 0, 0, 0, 0, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0 }
-  +    , 0, 0, 0, 0, 0, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0 }
-   
-   
-   /*
-  @@ -483,7 +483,7 @@ struct  Aap2__BundleDispatchInfo
-  -struct  Aap2__DispatchEvent
-  +struct  _Aap2__DispatchEvent
-   {
-     ProtobufCMessage base;
-     /*
-  @@ -502,13 +502,13 @@ struct  Aap2__DispatchEvent
-  -, NULL, AAP2__DISPATCH_REASON__DISPATCH_REASON_UNSPECIFIED, NULL }
-  +    , NULL, AAP2__DISPATCH_REASON__DISPATCH_REASON_UNSPECIFIED, NULL }
-   
-   
-   /*
-    * Message for initiating or informing about CLA link status changes.
-    */
-  -struct  Aap2__Link
-  +struct  _Aap2__Link
-   {
-     ProtobufCMessage base;
-     /*
-  @@ -531,26 +531,26 @@ struct  Aap2__Link
-  -, AAP2__LINK_STATUS__LINK_STATUS_UNSPECIFIED, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, AAP2__LINK_FLAGS__LINK_FLAG_NONE }
-  +    , AAP2__LINK_STATUS__LINK_STATUS_UNSPECIFIED, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, AAP2__LINK_FLAGS__LINK_FLAG_NONE }
-   
-   
-   /*
-    * A message that should be regularly sent by the current Initiator and must be
-    * acknowledged with an `AAPResponse` specifying `RESPONSE_STATUS_ACK`.
-    */
-  -struct  Aap2__Keepalive
-  +struct  _Aap2__Keepalive
-   {
-     ProtobufCMessage base;
-   };
-   #define AAP2__KEEPALIVE__INIT \
-    { PROTOBUF_C_MESSAGE_INIT (&aap2__keepalive__descriptor) \
-  - }
-  +     }
-   
-   
-   /*
-    * The response to every AAPMessage, sent by the peer that received the message.
-    */
-  -struct  Aap2__AAPResponse
-  +struct  _Aap2__AAPResponse
-   {
-     ProtobufCMessage base;
-     /*
-  @@ -569,7 +569,7 @@ struct  Aap2__AAPResponse
-  -, AAP2__RESPONSE_STATUS__RESPONSE_STATUS_UNSPECIFIED, NULL, NULL }
-  +    , AAP2__RESPONSE_STATUS__RESPONSE_STATUS_UNSPECIFIED, NULL, NULL }
-   
-   
-   /*
-  @@ -577,7 +577,7 @@ struct  Aap2__AAPResponse
-  -struct  Aap2__DispatchResult__NextHopEntry
-  +struct  _Aap2__DispatchResult__NextHopEntry
-   {
-     ProtobufCMessage base;
-     /*
-  @@ -601,13 +601,13 @@ struct  Aap2__DispatchResult__NextHopEntry
-  -, (char *)protobuf_c_empty_string, 0, 0 }
-  +    , (char *)protobuf_c_empty_string, 0, 0 }
-   
-   
-   /*
-    * Representation of a result of a Bundle Dispatcher Module (BDM).
-    */
-  -struct  Aap2__DispatchResult
-  +struct  _Aap2__DispatchResult
-   {
-     ProtobufCMessage base;
-     /*
-  @@ -628,7 +628,7 @@ struct  Aap2__DispatchResult
-  -, 0,NULL }
-  +    , 0,NULL }
-   
-   
-   /* Aap2__AAPMessage methods */
-  +49 -49
 
 src/tun.c
   @@ -11,7 +11,9 @@
@@ -396,5 +125,5 @@ src/tun.c
   +  setup_route(config->tun_name, config->address, config->mtu);
      return fd;
    }
-   
+
   +6 -3

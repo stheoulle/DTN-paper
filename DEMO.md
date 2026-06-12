@@ -6,7 +6,7 @@ All commands run from the **repo root** unless stated otherwise.
 
 ## Architecture recap
 
-```
+```bash
 App1  ──UDP──  Charon(alice)  ──AAP2──  Node0(ud3tn + A-SABR)
                                                │ BP7/TCPCLv3 :4224
                                         Node1(Unibo + CSPCL)   CSP addr 1
@@ -266,6 +266,7 @@ sudo ip netns exec alice_ns $(pwd)/apps/sender 10.0.0.2 4000
 ```
 
 Full traffic path:
+
 ```
 sender (alice_ns) ─UDP/IP─▶ tun0 ─IP─▶ Charon(alice) ─BP7/AAP2─▶ uD3TN(alice)
   ─BP7/TCPCLv3─▶ Unibo ─BP7/CSP+RDP/CAN (addr 1→2)─▶ Hardy
@@ -279,6 +280,7 @@ Return path is symmetric (Charon bob → `dtn://alice.dtn/charon` → Charon ali
 > **Note on Hardy logs**: Hardy logs bundle reception, routing, and forwarding at `debug` level. A silent Hardy terminal with `log-level: info` means it is working correctly.
 
 ---
+
 ### Test Alice's side without charon
 
 ```bash
@@ -289,10 +291,12 @@ python3 -m ud3tn_utils.aap2.bin.aap2_receive \
 ```
 
 In another terminal, generate one ICMP packet from inside alice_ns:
+
 ```bash
 sudo ip netns exec alice_ns ping -c 1 10.0.0.2
 ```
-If Charon alice is working, aap2_receive will print a bundle (binary ICMP payload). The ping itself will hang (no reply, since Charon bob isn't running) 
+
+If Charon alice is working, aap2_receive will print a bundle (binary ICMP payload). The ping itself will hang (no reply, since Charon bob isn't running)
 
 ### Quick connectivity test (no Charon required)
 

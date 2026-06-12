@@ -50,14 +50,14 @@ ud3tn-integration/dev.patch
   @@ -27,8 +27,8 @@ index b109adb..a33110c 100644
   -+                     -I/home/mathias/libcsp-src/include \
   -+                     -I/home/mathias/libcsp-src/build/include \
-  ++                     -I/home/prnm691/Documents/DTN-paper/libcsp/include \
-  ++                     -I/home/prnm691/Documents/DTN-paper/libcsp/build/include \
+  ++                     -I/home/light/Documents/DO5/DTN-paper/libcsp/include \
+  ++                     -I/home/light/Documents/DO5/DTN-paper/libcsp/build/include \
                          -Igenerated
     
     $(eval $(call addComponentWithRules,components/aap))
   @@ -53,7 +53,7 @@ index 2adaa41..469dd6c 100644
   -+LDFLAGS += -L/home/mathias/libcsp-src/build -lcsp -lzmq -lsocketcan
-  ++LDFLAGS += -L/home/prnm691/Documents/DTN-paper/libcsp/build -lcsp -lzmq -lsocketcan
+  ++LDFLAGS += -L/home/light/Documents/DO5/DTN-paper/libcsp/build -lcsp -lzmq -lsocketcan
    +
    +
     ifndef DISABLE_SQLITE_STORAGE

@@ -15,6 +15,7 @@ git clone https://github.com/theotchlx/A-SABR-Python.git
 cd A-SABR-Python
 git checkout feat/asabr-bdm
 maturin develop
+cd ..
 ```
 
 ```bash
@@ -61,6 +62,7 @@ Because we will launch only 2 BPAs (Nodes 0 and 1) and plug our BDM to Node 0, w
 ```bash
 cd asabr_bdm
 uv sync --active
+cd ..
 #python main.py ../test.cp ../test.json --socket ../ud3tn/ud3tn.aap2.socket -vv
 ```
 
@@ -72,6 +74,7 @@ cd libcsp
 git checkout v1.6
 python3.11 waf configure --enable-can-socketcan --enable-if-zmqhub --enable-rdp
 python3.11 waf build
+cd ..
 ```
 
 # CSPCL build from source
@@ -107,6 +110,7 @@ cp ${CSPCL_REPO}/ud3tn-integration/src/cla_csp.h include/cla/
 
 # Build
 make posix
+cd ..
 ```
 
 # Unibo
@@ -122,7 +126,7 @@ make
 sudo make install
 sudo ldconfig
 
-cd ..
+cd ../..
 export UNIBO_BP_BIN=$(pwd)/unibo-dtn/unibo-bp/build/Unibo-BP/bin
 export UNIBO_BP_LIB=$(pwd)/unibo-dtn/unibo-bp/build/Unibo-BP/lib
 export LIBCSP_BUILD=$(pwd)/libcsp/build
