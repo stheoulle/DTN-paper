@@ -158,7 +158,11 @@ The built static library is `libcsp/build-riscv/libcsp.a` (RISC-V ELF).
 ```bash
 cd ud3tn
 make clean
-make posix TOOLCHAIN_POSIX=riscv64-linux-gnu- DISABLE_JSON=1 DISABLE_SQLITE_STORAGE=1
+make posix \
+  TOOLCHAIN_POSIX=riscv64-linux-gnu- \
+  DISABLE_JSON=1 \
+  DISABLE_SQLITE_STORAGE=1 \
+  LIBCSP_BUILD_INCLUDE=/home/light/Documents/DO5/DTN-paper/libcsp/build-riscv/include
 # binary: build/posix/ud3tn
 cd ..
 ```
@@ -169,6 +173,10 @@ previously built for x86 — without it make sees the existing artifacts and doe
 `DISABLE_JSON=1` and `DISABLE_SQLITE_STORAGE=1` skip the jansson and sqlite3
 dependencies, neither of which has a RISC-V cross package on Arch. Both features
 are unused when running in BDM mode.
+`LIBCSP_BUILD_INCLUDE` points the compiler at the RISC-V build's `csp_autoconfig.h`
+(which does NOT define `CSP_HAVE_LIBZMQ`), ensuring the zmqhub code is skipped
+at compile time. Without this, the x86 autoconfig header is used and the linker
+fails trying to find `csp_zmqhub_init` in the RISC-V `libcsp.a`.
 
 The LDFLAGS line in `ud3tn/mk/posix.mk` already points to `libcsp/build-riscv` and
 `libsocketcan-riscv/lib` (patched above) and has `-lzmq` removed.
