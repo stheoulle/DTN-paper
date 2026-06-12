@@ -258,7 +258,9 @@ scp unibo-dtn/unibo-bp/build-riscv/Unibo-BP/bin/* board1:~/
 ```bash
 cd hardy
 CSP_REPO_DIR=$(pwd)/../libcsp \
-CSP_BUILD_DIR=$(pwd)/../libcsp/build \
+CSP_BUILD_DIR=$(pwd)/../libcsp/build-riscv \
+BINDGEN_EXTRA_CLANG_ARGS="--target=riscv64-linux-gnu --sysroot=/usr/riscv64-linux-gnu -fsigned-char" \
+RUSTFLAGS="-L $(pwd)/../libsocketcan-riscv/lib" \
   cargo build --release \
     --target riscv64gc-unknown-linux-gnu \
     -p hardy-bpa-server \
@@ -267,29 +269,97 @@ CSP_BUILD_DIR=$(pwd)/../libcsp/build \
 cd ..
 ```
 
+`CSP_BUILD_DIR` must point to the RISC-V build so `build.rs` finds the correct
+`csp_autoconfig.h` (no `CSP_HAVE_LIBZMQ`) and skips linking `-lzmq`.
+`BINDGEN_EXTRA_CLANG_ARGS` tells the bindgen clang invocation to target RISC-V and
+use the cross sysroot in `/usr/riscv64-linux-gnu` instead of the host x86 headers
+(avoids `regparm`/`__float128` errors from x86-specific headers).
+`RUSTFLAGS` adds the search path for the cross-compiled `libsocketcan.a`.
+
 ### 3.7 Charon (for board2 — bob side)
+
+There is no RISC-V cross package for protobuf-c on Arch. The runtime is a single C
+file — compile it manually from the DTN-paper root (match the version shown by
+`pacman -Q protobuf-c`):
+
+```bash
+# Run from the DTN-paper root, NOT from inside charon/
+wget https://github.com/protobuf-c/protobuf-c/releases/download/v1.5.2/protobuf-c-1.5.2.tar.gz
+tar xzf protobuf-c-1.5.2.tar.gz
+cd protobuf-c-1.5.2
+riscv64-linux-gnu-gcc -O2 -c protobuf-c/protobuf-c.c -o protobuf-c.o
+riscv64-linux-gnu-ar rcs libprotobuf-c.a protobuf-c.o
+mkdir -p ../protobuf-c-riscv/lib ../protobuf-c-riscv/include/protobuf-c
+cp libprotobuf-c.a ../protobuf-c-riscv/lib/
+cp protobuf-c/protobuf-c.h ../protobuf-c-riscv/include/protobuf-c/
+cd ..
+```
+
+This creates `DTN-paper/protobuf-c-riscv/` alongside the other `*-riscv/` build dirs.
+Then build charon:
 
 ```bash
 cd charon
-make CC=riscv64-linux-gnu-gcc
+make clean
+make CC=riscv64-linux-gnu-gcc \
+  CFLAGS="-Wall -Wextra -g -O2 -Isrc -DLOG_USE_COLOR -I../protobuf-c-riscv/include" \
+  LDFLAGS="-L../protobuf-c-riscv/lib -lprotobuf-c -lpthread"
 # binary: build/charon
 cd ..
 ```
 
+`make clean` is required if you previously built for x86 — without it make sees the
+existing `build/charon` is up-to-date and does nothing.
+
 ### 3.8 asabr_bdm and A-SABR-Python (for board2)
 
-If board2 runs a full Linux distribution with Python 3.10+, install natively on the board:
+`asabr_bdm` depends on `a-sabr-python` (a Rust/PyO3 extension that must be
+cross-compiled), plus `pyd3tn` and `ud3tn-utils` (pure Python).
+Build everything on the x86 machine and transfer wheels to board2.
+
+**Cross-compile the a-sabr-python wheel:**
 
 ```bash
-# On board2
-pip3 install maturin
-git clone https://github.com/theotchlx/A-SABR-Python && cd A-SABR-Python
-git checkout feat/asabr-bdm && maturin develop && cd ..
-git clone https://github.com/theotchlx/asabr_bdm
+cd A-SABR-Python
+PYO3_CROSS_PYTHON_VERSION=3.10 \
+  maturin build --release \
+    --target riscv64gc-unknown-linux-gnu \
+    --manylinux off \
+    -i python3.13
+# wheel: target/wheels/a_sabr_python-0.1.0-cp310-cp310-linux_riscv64.whl
+cd ..
 ```
 
-Otherwise, build a self-contained wheel with `maturin build --target riscv64gc-unknown-linux-gnu`
-and transfer it.
+`PYO3_CROSS_PYTHON_VERSION` must match the exact CPython version on board2
+(`~/dtn-venv/bin/python --version` → `3.10.13` → use `3.10`).
+`-i python3.13` points maturin at the host interpreter for build metadata only.
+`--manylinux off` skips the container check required for distribution wheels.
+
+**Build pure-Python wheels:**
+
+```bash
+mkdir -p wheels
+python3.13 -m pip wheel ud3tn/pyd3tn             -w wheels/ --no-deps
+python3.13 -m pip wheel ud3tn/python-ud3tn-utils -w wheels/ --no-deps
+python3.13 -m pip wheel asabr_bdm/               -w wheels/ --no-deps
+```
+
+Use `python3.13` explicitly — the default `python3` may be an older version that
+fails the `requires-python = ">=3.13"` check in `asabr_bdm/pyproject.toml`.
+
+**Transfer and install on board2:**
+
+```bash
+# Copy all wheels and the asabr_bdm source
+scp A-SABR-Python/target/wheels/a_sabr_python-*.whl board2:~/wheels/
+scp wheels/*.whl board2:~/wheels/
+rsync -a asabr_bdm/ board2:~/asabr_bdm/
+rsync -a demo/     board2:~/demo/
+
+# On board2 — create a venv and install the wheels into it
+python3 -m venv ~/dtn-venv
+~/dtn-venv/bin/pip install ~/wheels/*.whl
+```
 
 ---
 
@@ -485,7 +555,7 @@ unibo-bp-admin tcpcl induct add --port 4225
   -d
 
 # T8 (board2)
-source .venv/bin/activate
+source ~/dtn-venv/bin/activate
 cd asabr_bdm
 python main.py \
   ../demo/alice.cp \
@@ -518,7 +588,7 @@ Verify the multi-hop DTN path before involving Charon or apps.
 
 ```bash
 # board2 — receive on bob
-python3 -m ud3tn_utils.aap2.bin.aap2_receive \
+~/dtn-venv/bin/python -m ud3tn_utils.aap2.bin.aap2_receive \
   --socket /tmp/bob.aap2.socket --agentid test -v -c 1
 
 # VM — send from alice
@@ -565,8 +635,10 @@ via socat TCP forwarding:
 socat TCP-LISTEN:9999,reuseaddr,fork UNIX-CONNECT:/tmp/bob.aap2.socket
 
 # On the x86 host — connect the BDM to the forwarded socket
+source .venv/bin/activate
+cd asabr_bdm
 python main.py ../demo/alice.cp ../demo/bob-eid-map.json \
-  --socket tcp://<PF2_IP>:9999 -vv
+  --socket tcp://<board2_IP>:9999 -vv
 ```
 
 **Time drift between nodes**
