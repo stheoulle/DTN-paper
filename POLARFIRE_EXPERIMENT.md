@@ -114,38 +114,66 @@ cansend can0 001#DEADBEEF
 
 Perform all build steps on your x86 build machine, then copy binaries to the boards.
 
-### 3.1 libcsp (for PF1 and PF2)
+### 3.1 libsocketcan (for PF1 and PF2)
+
+libsocketcan has no Arch RISC-V cross package and must be built first — libcsp's
+CAN driver includes `libsocketcan.h` at compile time.
 
 ```bash
-cd libcsp
-python3.11 waf configure \
-  --enable-can-socketcan \
-  --enable-rdp \
-  --cross-compile \
-  --toolchain-prefix riscv64-linux-gnu-
-python3.11 waf build
+git clone https://github.com/linux-can/libsocketcan.git
+cd libsocketcan
+autoreconf -i
+./configure --host=riscv64-linux-gnu \
+  --prefix=$(pwd)/../libsocketcan-riscv
+make install
 cd ..
 ```
 
-The built static library is `libcsp/build/libcsp.a` (RISC-V ELF).
+The headers land in `libsocketcan-riscv/include/` and the static library in
+`libsocketcan-riscv/lib/libsocketcan.a`.
 
-### 3.2 uD3TN with CSPCL (for PF2 — bob node)
+### 3.2 libcsp (for PF1 and PF2)
+
+waf reads the compiler from the `CC`/`AR` environment variables for cross-compilation.
+Do **not** pass `--enable-if-zmqhub` — zmq is not needed on the boards and has no
+RISC-V cross package on Arch. Use `--out=build-riscv` to keep the x86 build intact.
+Pass the libsocketcan headers via `CPPFLAGS`.
+
+```bash
+cd libcsp
+CC=riscv64-linux-gnu-gcc AR=riscv64-linux-gnu-ar \
+  CPPFLAGS="-I$(pwd)/../libsocketcan-riscv/include" \
+  python3.11 waf configure \
+    --enable-can-socketcan \
+    --enable-rdp \
+    --out=build-riscv
+python3.11 waf build --out=build-riscv
+cd ..
+```
+
+The built static library is `libcsp/build-riscv/libcsp.a` (RISC-V ELF).
+
+### 3.3 uD3TN with CSPCL (for PF2 — bob node)
 
 ```bash
 cd ud3tn
-make posix \
-  CC=riscv64-linux-gnu-gcc \
-  CXX=riscv64-linux-gnu-g++ \
-  ARCH=posix \
-  TOOLCHAIN_PREFIX=riscv64-linux-gnu-
+make clean
+make posix TOOLCHAIN_POSIX=riscv64-linux-gnu- DISABLE_JSON=1 DISABLE_SQLITE_STORAGE=1
 # binary: build/posix/ud3tn
 cd ..
 ```
 
-Ensure the libcsp paths in `ud3tn/mk/posix.mk` (patched in the README) point to
-the RISC-V build of libcsp above.
+`TOOLCHAIN_POSIX` is the prefix ud3tn's build system uses for all tools (gcc, ar, ranlib…).
+Passing `CC=` directly has no effect here. The `make clean` is required if you
+previously built for x86 — without it make sees the existing artifacts and does nothing.
+`DISABLE_JSON=1` and `DISABLE_SQLITE_STORAGE=1` skip the jansson and sqlite3
+dependencies, neither of which has a RISC-V cross package on Arch. Both features
+are unused when running in BDM mode.
 
-### 3.3 CSPCL unibo daemon (for PF1)
+The LDFLAGS line in `ud3tn/mk/posix.mk` already points to `libcsp/build-riscv` and
+`libsocketcan-riscv/lib` (patched above) and has `-lzmq` removed.
+
+### 3.4 CSPCL unibo daemon (for PF1)
 
 ```bash
 DTN_ROOT=$(pwd)
@@ -170,7 +198,7 @@ cd ../..
 > for RISC-V. Follow the README `make` steps with the RISC-V toolchain active:
 > `make CC=riscv64-linux-gnu-gcc CXX=riscv64-linux-gnu-g++`.
 
-### 3.4 Hardy BPA server (for PF2)
+### 3.5 Hardy BPA server (for PF2)
 
 ```bash
 cd hardy
@@ -184,7 +212,7 @@ CSP_BUILD_DIR=$(pwd)/../libcsp/build \
 cd ..
 ```
 
-### 3.5 Charon (for PF2 — bob side)
+### 3.6 Charon (for PF2 — bob side)
 
 ```bash
 cd charon
@@ -193,7 +221,7 @@ make CC=riscv64-linux-gnu-gcc
 cd ..
 ```
 
-### 3.6 asabr_bdm and A-SABR-Python (for PF2)
+### 3.7 asabr_bdm and A-SABR-Python (for PF2)
 
 If PF2 runs a full Linux distribution with Python 3.10+, install natively on the board:
 
