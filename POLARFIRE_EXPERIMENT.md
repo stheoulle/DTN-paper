@@ -218,9 +218,39 @@ riscv64-linux-gnu-gcc -O2 -Wall -Wextra \
   -I$DTN_ROOT/libcsp/include \
   -I$DTN_ROOT/libcsp/build-riscv/include \
   -L$UNIBO_BP_LIB \
+  -Wl,--rpath-link,$UNIBO_BP_LIB \
+  -Wl,-rpath,/opt/unibo-bp/lib \
   -lunibo-bp-api $LIBCSP_BUILD/libcsp.a \
   -L$DTN_ROOT/libsocketcan-riscv/lib -lsocketcan -lpthread -lm
 cd ../..
+```
+
+`--rpath-link` lets the linker resolve transitive `.so` dependencies (all the internal
+unibo-bp libs that `libunibo-bp-api.so` depends on) without embedding a build-machine
+path in the binary. `-rpath` bakes `/opt/unibo-bp/lib` as the runtime search path into
+the binary — the libraries must be present at that path on PF1 before the daemon starts.
+
+**Deploying to PF1** (run from the build machine, replace `pf1` with the board's hostname or IP):
+
+```bash
+# Create the runtime library directory on PF1
+ssh pf1 "sudo mkdir -p /opt/unibo-bp/lib"
+
+# Copy all unibo-bp shared libraries
+scp unibo-dtn/unibo-bp/build-riscv/Unibo-BP/lib/*.so* pf1:/opt/unibo-bp/lib/
+
+# Copy the CSPCL daemon binary
+scp cspcl/unibo-integration/build/unibo-bp-cspcl-riscv pf1:~/
+
+# Refresh the dynamic linker cache on PF1
+ssh pf1 "sudo ldconfig /opt/unibo-bp/lib"
+```
+
+Also copy the unibo-bp executables if you need `unibo-bp`, `unibo-bp-admin`, and
+`unibo-bp-tcpcl` on PF1:
+
+```bash
+scp unibo-dtn/unibo-bp/build-riscv/Unibo-BP/bin/* pf1:~/
 ```
 
 ### 3.6 Hardy BPA server (for PF2)
