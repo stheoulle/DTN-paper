@@ -181,12 +181,32 @@ fails trying to find `csp_zmqhub_init` in the RISC-V `libcsp.a`.
 The LDFLAGS line in `ud3tn/mk/posix.mk` already points to `libcsp/build-riscv` and
 `libsocketcan-riscv/lib` (patched above) and has `-lzmq` removed.
 
-### 3.4 CSPCL unibo daemon (for PF1)
+### 3.4 Unibo-BP core libraries (for PF1)
+
+Unibo-BP is a CMake project. Cross-compile it into a separate build directory so
+the x86 build is not overwritten. A toolchain file is provided at
+`unibo-dtn/unibo-bp/riscv64-linux-gnu.cmake`.
+
+```bash
+cd unibo-dtn/unibo-bp
+cmake \
+  -DCMAKE_TOOLCHAIN_FILE=riscv64-linux-gnu.cmake \
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+  -DWITH_MANPAGE_GENERATION=OFF \
+  -S . -B build-riscv
+cmake --build build-riscv -- -j$(nproc)
+cd ../..
+```
+
+`WITH_MANPAGE_GENERATION=OFF` avoids a pod2man host-tool dependency that breaks
+cross builds. The built libraries land in `build-riscv/Unibo-BP/lib/`.
+
+### 3.5 CSPCL unibo daemon (for PF1)
 
 ```bash
 DTN_ROOT=$(pwd)
-UNIBO_BP_LIB=$DTN_ROOT/unibo-dtn/unibo-bp/build/Unibo-BP/lib
-LIBCSP_BUILD=$DTN_ROOT/libcsp/build
+UNIBO_BP_LIB=$DTN_ROOT/unibo-dtn/unibo-bp/build-riscv/Unibo-BP/lib
+LIBCSP_BUILD=$DTN_ROOT/libcsp/build-riscv
 
 cd cspcl/unibo-integration && mkdir -p build
 riscv64-linux-gnu-gcc -O2 -Wall -Wextra \
@@ -194,19 +214,16 @@ riscv64-linux-gnu-gcc -O2 -Wall -Wextra \
   -o build/unibo-bp-cspcl-riscv \
   -I../src \
   -I$DTN_ROOT/unibo-dtn/unibo-bp/include \
+  -I$DTN_ROOT/unibo-dtn/unibo-bp/export/include \
   -I$DTN_ROOT/libcsp/include \
-  -I$DTN_ROOT/libcsp/build/include \
-  -L$UNIBO_BP_LIB -Wl,-rpath,/opt/unibo/lib \
+  -I$DTN_ROOT/libcsp/build-riscv/include \
+  -L$UNIBO_BP_LIB \
   -lunibo-bp-api $LIBCSP_BUILD/libcsp.a \
-  -lsocketcan -lpthread -lm -lzmq
+  -L$DTN_ROOT/libsocketcan-riscv/lib -lsocketcan -lpthread -lm
 cd ../..
 ```
 
-> Unibo-BP itself (`unibo-bp`, `unibo-bp-admin`, `unibo-bp-tcpcl`) must also be built
-> for RISC-V. Follow the README `make` steps with the RISC-V toolchain active:
-> `make CC=riscv64-linux-gnu-gcc CXX=riscv64-linux-gnu-g++`.
-
-### 3.5 Hardy BPA server (for PF2)
+### 3.6 Hardy BPA server (for PF2)
 
 ```bash
 cd hardy
@@ -220,7 +237,7 @@ CSP_BUILD_DIR=$(pwd)/../libcsp/build \
 cd ..
 ```
 
-### 3.6 Charon (for PF2 — bob side)
+### 3.7 Charon (for PF2 — bob side)
 
 ```bash
 cd charon
@@ -229,7 +246,7 @@ make CC=riscv64-linux-gnu-gcc
 cd ..
 ```
 
-### 3.7 asabr_bdm and A-SABR-Python (for PF2)
+### 3.8 asabr_bdm and A-SABR-Python (for PF2)
 
 If PF2 runs a full Linux distribution with Python 3.10+, install natively on the board:
 
