@@ -234,16 +234,16 @@ the binary — the libraries must be present at that path on board1 before the d
 
 ```bash
 # Create the runtime library directory on board1
-ssh board1 "sudo mkdir -p /opt/unibo-bp/lib"
+ssh board1 "mkdir -p /opt/unibo-bp/lib"
 
-# Copy all unibo-bp shared libraries
-scp unibo-dtn/unibo-bp/build-riscv/Unibo-BP/lib/*.so* board1:/opt/unibo-bp/lib/
+# Copy all unibo-bp shared libraries (rsync preserves symlinks; scp would flatten them)
+rsync -a unibo-dtn/unibo-bp/build-riscv/Unibo-BP/lib/ board1:/opt/unibo-bp/lib/
 
 # Copy the CSPCL daemon binary
 scp cspcl/unibo-integration/build/unibo-bp-cspcl-riscv board1:~/
 
 # Refresh the dynamic linker cache on board1
-ssh board1 "sudo ldconfig /opt/unibo-bp/lib"
+ssh board1 "ldconfig /opt/unibo-bp/lib"
 ```
 
 Also copy the unibo-bp executables if you need `unibo-bp`, `unibo-bp-admin`, and
