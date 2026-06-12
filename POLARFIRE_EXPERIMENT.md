@@ -325,7 +325,7 @@ PYO3_CROSS_PYTHON_VERSION=3.10 \
   maturin build --release \
     --target riscv64gc-unknown-linux-gnu \
     --manylinux off \
-    -i python3.13
+    -i python3.10
 # wheel: target/wheels/a_sabr_python-0.1.0-cp310-cp310-linux_riscv64.whl
 cd ..
 ```
@@ -338,14 +338,15 @@ cd ..
 **Build pure-Python wheels:**
 
 ```bash
+# Deactivate any active venv first so the system python3.13 (with pip) is used
+deactivate 2>/dev/null || true
 mkdir -p wheels
 python3.13 -m pip wheel ud3tn/pyd3tn             -w wheels/ --no-deps
 python3.13 -m pip wheel ud3tn/python-ud3tn-utils -w wheels/ --no-deps
 python3.13 -m pip wheel asabr_bdm/               -w wheels/ --no-deps
 ```
 
-Use `python3.13` explicitly — the default `python3` may be an older version that
-fails the `requires-python = ">=3.13"` check in `asabr_bdm/pyproject.toml`.
+Use the system `python3.13` — if a venv is active its interpreter may lack pip.
 
 **Transfer and install on board2:**
 
