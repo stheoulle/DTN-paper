@@ -372,6 +372,22 @@ python3 -m venv ~/dtn-venv
 ~/dtn-venv/bin/pip install ~/wheels/*.whl
 ```
 
+### 3.9 Deploy binaries to board2
+
+Run from the DTN-paper root on the build machine:
+
+```bash
+# uD3TN (bob node)
+scp ud3tn/build/posix/ud3tn board2:~/
+
+# Hardy BPA server
+scp hardy/target/riscv64gc-unknown-linux-gnu/release/hardy-bpa-server board2:~/
+
+# Charon (bob side)
+scp charon/build/charon board2:~/
+
+```
+
 ---
 
 ## 4. Config File Changes
@@ -496,7 +512,7 @@ Change the CAN interface from the demo's `can` to the real `can0`:
 ./ud3tn -e dtn://bob.dtn/ -S /tmp/bob.aap2.socket -s /tmp/bob.socket -c "csp:3,10,can" -d
 
 # board2 command:
-./ud3tn -e dtn://bob.dtn/ -S /tmp/bob.aap2.socket -s /tmp/bob.socket -c "csp:3,10,can0" -d
+./ud3tn -e dtn://bob.dtn/ -S /tmp/bob.aap2.socket -s /tmp/bob.socket -c "csp:3,10,can:can0" -d
 ```
 
 ### 4.5 Network namespace for Charon (board2)
