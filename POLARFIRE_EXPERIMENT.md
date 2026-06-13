@@ -433,7 +433,7 @@ from `can` (which mapped to `vcan0` in the demo) to the real CAN interface name:
 ./unibo-bp-cspcl 1 10 can 2001 /tmp/unibo-node1
 
 # board1 command (real CAN):
-./unibo-bp-cspcl 1 10 can0 2001 /tmp/unibo-node1
+./unibo-bp-cspcl-riscv 1 10 can:can0 1 /tmp/unibo-node1
 ```
 
 ### 4.3 board2 — Hardy
