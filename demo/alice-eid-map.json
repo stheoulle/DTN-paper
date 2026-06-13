@@ -1,6 +1,6 @@
 {
-    "dtn://alice.dtn/": {"name": "alice", "cla_addr": null},
-    "dtn://unibo.dtn/": {"name": "unibo", "cla_addr": "tcpclv3:127.0.0.1:4225"},
-    "dtn://hardy.dtn/": {"name": "hardy", "cla_addr": null},
-    "dtn://bob.dtn/":   {"name": "bob",   "cla_addr": null}
+  "dtn://alice.dtn/": { "name": "alice", "cla_addr": null },
+  "dtn://unibo.dtn/": { "name": "unibo", "cla_addr": "tcpclv3:10.0.0.32:4225" },
+  "dtn://hardy.dtn/": { "name": "hardy", "cla_addr": null },
+  "dtn://bob.dtn/": { "name": "bob", "cla_addr": null }
 }

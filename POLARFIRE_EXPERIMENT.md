@@ -366,7 +366,19 @@ python3 -m venv ~/dtn-venv
 
 ## 4. Config File Changes
 
-Copy the `demo/` directory to each machine and adjust per the sections below.
+Copy the `demo/` directory to each machine, then adjust per the sections below.
+Run these from the DTN-paper root on the build machine:
+
+```bash
+# board1 — only needs the demo configs (no binaries from demo/)
+rsync -a demo/ board1:~/demo/
+
+# board2 — demo configs + asabr_bdm source
+rsync -a demo/      board2:~/demo/
+rsync -a asabr_bdm/ board2:~/asabr_bdm/
+```
+
+The VM already has the full repo; just edit `demo/alice-eid-map.json` in place.
 
 ### 4.1 VM — `demo/alice-eid-map.json`
 
@@ -375,13 +387,13 @@ Change the TCPCLv3 CLA address from the loopback to board1's real IP:
 ```json
 {
     "dtn://alice.dtn/": {"name": "alice", "cla_addr": null},
-    "dtn://unibo.dtn/": {"name": "unibo", "cla_addr": "tcpclv3:<PF1_IP>:4225"},
+    "dtn://unibo.dtn/": {"name": "unibo", "cla_addr": "tcpclv3:10.0.0.32:4225"},
     "dtn://hardy.dtn/": {"name": "hardy", "cla_addr": null},
     "dtn://bob.dtn/":   {"name": "bob",   "cla_addr": null}
 }
 ```
 
-Replace `<PF1_IP>` with board1's actual IP address on the network shared with the VM.
+board1's IP is `10.0.0.32` (eth0). Update this if the address changes.
 
 Everything else on the VM (alice uD3TN, asabr_bdm, charon, network namespaces) is
 identical to the single-machine demo.
