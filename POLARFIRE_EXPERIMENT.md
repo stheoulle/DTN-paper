@@ -183,12 +183,18 @@ The LDFLAGS line in `ud3tn/mk/posix.mk` already points to `libcsp/build-riscv` a
 
 ### 3.4 Unibo-BP core libraries (for board1)
 
+> **Toolchain note**: The PolarFire board runs glibc 2.35 / GCC 11.4.0. The Arch
+> `riscv64-linux-gnu-gcc` targets a newer glibc, so the approach here builds unibo-bp
+> as **static libraries** (`-DBUILD_SHARED_LIBS=OFF`) and links the daemon fully
+> statically. The resulting binary has no shared library dependencies and no glibc
+> version constraint — just copy it to board1 and run it.
+
 Unibo-BP is a CMake project. Cross-compile it into a separate build directory so
-the x86 build is not overwritten. A toolchain file is provided at
-`unibo-dtn/unibo-bp/riscv64-linux-gnu.cmake`.
+the x86 build is not overwritten.
 
 ```bash
 cd unibo-dtn/unibo-bp
+rm -rf build-riscv
 cmake \
   -DCMAKE_TOOLCHAIN_FILE=riscv64-linux-gnu.cmake \
   -DCMAKE_BUILD_TYPE=RelWithDebInfo \
@@ -198,56 +204,60 @@ cmake --build build-riscv -- -j$(nproc)
 cd ../..
 ```
 
-`WITH_MANPAGE_GENERATION=OFF` avoids a pod2man host-tool dependency that breaks
-cross builds. The built libraries land in `build-riscv/Unibo-BP/lib/`.
+The built static archives land in `build-riscv/Unibo-BP/lib/`.
 
 ### 3.5 CSPCL unibo daemon (for board1)
+
+Link the daemon fully statically against the unibo-bp archives built above. No shared
+libraries are needed on board1 at all.
 
 ```bash
 DTN_ROOT=$(pwd)
 UNIBO_BP_LIB=$DTN_ROOT/unibo-dtn/unibo-bp/build-riscv/Unibo-BP/lib
 LIBCSP_BUILD=$DTN_ROOT/libcsp/build-riscv
-
-cd cspcl/unibo-integration && mkdir -p build
-riscv64-linux-gnu-gcc -O2 -Wall -Wextra \
-  src/cspcl_daemon.c ../src/cspcl.c \
-  -o build/unibo-bp-cspcl-riscv \
-  -I../src \
+INCLUDES="-I../src \
   -I$DTN_ROOT/unibo-dtn/unibo-bp/include \
   -I$DTN_ROOT/unibo-dtn/unibo-bp/export/include \
   -I$DTN_ROOT/libcsp/include \
-  -I$DTN_ROOT/libcsp/build-riscv/include \
+  -I$DTN_ROOT/libcsp/build-riscv/include"
+
+cd cspcl/unibo-integration && mkdir -p build
+
+# Compile C files with gcc (C mode — allows implicit void* casts)
+riscv64-linux-gnu-gcc -O2 -Wall $INCLUDES -c src/cspcl_daemon.c -o build/cspcl_daemon.o
+riscv64-linux-gnu-gcc -O2 -Wall $INCLUDES -c ../src/cspcl.c      -o build/cspcl.o
+
+# Link with g++ so the C++ runtime is pulled in automatically
+riscv64-linux-gnu-g++ \
+  build/cspcl_daemon.o build/cspcl.o \
+  -o build/unibo-bp-cspcl-riscv \
+  -static \
   -L$UNIBO_BP_LIB \
-  -Wl,--rpath-link,$UNIBO_BP_LIB \
-  -Wl,-rpath,/opt/unibo-bp/lib \
-  -lunibo-bp-api $LIBCSP_BUILD/libcsp.a \
+  -Wl,--start-group \
+    -lunibo-bp-api -lunibo-bp-bundle-protocol \
+    -lclient -lcla -llogger -ltime -lstorage -lio -lmath \
+    -lunibo-bp-exception -lipc -lutil -lserver -lunibo-bp-rolodex \
+    $LIBCSP_BUILD/libcsp.a \
+  -Wl,--end-group \
   -L$DTN_ROOT/libsocketcan-riscv/lib -lsocketcan -lpthread -lm
+
 cd ../..
 ```
 
-`--rpath-link` lets the linker resolve transitive `.so` dependencies (all the internal
-unibo-bp libs that `libunibo-bp-api.so` depends on) without embedding a build-machine
-path in the binary. `-rpath` bakes `/opt/unibo-bp/lib` as the runtime search path into
-the binary — the libraries must be present at that path on board1 before the daemon starts.
+Compile `.c` sources with `gcc` (C mode, where implicit `void*` casts are valid), then
+link the `.o` files with `g++` so the C++ runtime (`libstdc++`, `libsupc++`) is included
+automatically. `--start-group`/`--end-group` lets the linker make multiple passes to
+resolve circular dependencies between the unibo-bp archives.
 
-**Deploying to board1** (run from the build machine, replace `board1` with the board's hostname or IP):
+**Deploying to board1** (run from the build machine):
 
 ```bash
-# Create the runtime library directory on board1
-ssh board1 "mkdir -p /opt/unibo-bp/lib"
-
-# Copy all unibo-bp shared libraries (rsync preserves symlinks; scp would flatten them)
-rsync -a unibo-dtn/unibo-bp/build-riscv/Unibo-BP/lib/ board1:/opt/unibo-bp/lib/
-
-# Copy the CSPCL daemon binary
+# Copy only the single static binary — no libraries needed
 scp cspcl/unibo-integration/build/unibo-bp-cspcl-riscv board1:~/
-
-# Refresh the dynamic linker cache on board1
-ssh board1 "ldconfig /opt/unibo-bp/lib"
 ```
 
-Also copy the unibo-bp executables if you need `unibo-bp`, `unibo-bp-admin`, and
-`unibo-bp-tcpcl` on board1:
+Also copy the unibo-bp executables (`unibo-bp`, `unibo-bp-admin`, `unibo-bp-tcpcl`)
+if they were built as static binaries too:
 
 ```bash
 scp unibo-dtn/unibo-bp/build-riscv/Unibo-BP/bin/* board1:~/
@@ -399,6 +409,20 @@ Everything else on the VM (alice uD3TN, asabr_bdm, charon, network namespaces) i
 identical to the single-machine demo.
 
 ### 4.2 board1 — Unibo
+
+You need to copy the CSPCL daemon binary you cross-compiled in §3.5 to board1. Run this from the build machine:
+
+```bash
+scp cspcl/unibo-integration/build/unibo-bp-cspcl-riscv board1:~/
+```
+
+Also make sure the unibo-bp shared libraries are on board1 (from the §3.5 deploy step):
+
+```bash
+ssh board1 " mkdir -p /opt/unibo-bp/lib"
+rsync -a unibo-dtn/unibo-bp/build-riscv/Unibo-BP/lib/ board1:/opt/unibo-bp/lib/
+ssh board1 " ldconfig /opt/unibo-bp/lib"
+```
 
 No file-based config changes: the TCPCLv3 induct already listens on all interfaces
 (`*:4225`).  The CSPCL daemon argument that specifies the CAN interface must change
