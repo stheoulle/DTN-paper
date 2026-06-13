@@ -143,6 +143,7 @@ Pass the libsocketcan headers via `CPPFLAGS`.
 cd libcsp
 CC=riscv64-linux-gnu-gcc AR=riscv64-linux-gnu-ar \
   CPPFLAGS="-I$(pwd)/../libsocketcan-riscv/include" \
+  CFLAGS="-std=gnu11" \
   python3.11 waf configure \
     --enable-can-socketcan \
     --enable-rdp \
@@ -151,7 +152,10 @@ python3.11 waf build --out=build-riscv
 cd ..
 ```
 
-The built static library is `libcsp/build-riscv/libcsp.a` (RISC-V ELF).
+`CFLAGS="-std=gnu11"` prevents GCC 15 from defaulting to C23 mode (which emits
+`__isoc23_*` I/O calls requiring `GLIBC_2.38`) while keeping GNU/POSIX extensions
+available for the POSIX arch files (threads, clocks). `-std=c11` would strip those
+extensions and break compilation. The built static library is `libcsp/build-riscv/libcsp.a` (RISC-V ELF).
 
 ### 3.3 uD3TN with CSPCL (for board2 — bob node)
 
@@ -565,14 +569,17 @@ connection attempt arrives.
 ### Step 3 — board1: Unibo-BP core + CLAs
 
 ```bash
+scp unibo-dtn/unibo-bp/build-riscv/Unibo-BP/bin/* board1:~/
+
+```bash
 # T4 (board1) — Unibo core
 mkdir -p /tmp/unibo-node1 && cd /tmp/unibo-node1
-unibo-bp start \
+~/unibo-bp start \
   --set-storage-size 50000000 \
   --dtn-admin dtn://unibo.dtn/ \
   --ipn-admin ipn:1.0 \
   --daemon
-
+  
 # Configure routing (once)
 REFERENCE_TIME=$(unibo-bp-utility --get-utc-time +0)
 unibo-bp-admin region home --register-node ipn:1.0
