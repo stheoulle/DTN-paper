@@ -31,7 +31,7 @@ git -C "$REPO_ROOT/hardy" apply "$PATCH_DIR/hardy.patch"
 
 echo "==> Cloning charon into hardy/charon (needed for cspcl Rust bindings)"
 if [ ! -d "$REPO_ROOT/hardy/charon/.git" ]; then
-    git clone https://github.com/dtn7/charon.git "$REPO_ROOT/hardy/charon"
+    git clone https://github.com/DTN-MTP/charon.git "$REPO_ROOT/hardy/charon"
 fi
 
 echo "==> Applying ud3tn tracked-changes patch"
