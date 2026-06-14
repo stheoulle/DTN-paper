@@ -196,6 +196,19 @@ The LDFLAGS line in `ud3tn/mk/posix.mk` already points to `libcsp/build-riscv` a
 Unibo-BP is a CMake project. Cross-compile it into a separate build directory so
 the x86 build is not overwritten.
 
+First, build a one-file compatibility shim for `arc4random` (added to glibc 2.36;
+the board has 2.35 but does have `getrandom` from glibc 2.25):
+
+```bash
+# Run from the DTN-paper root
+riscv64-linux-gnu-gcc -std=c11 -c arc4random_compat.c -o arc4random_compat.o
+```
+
+(`arc4random_compat.c` is provided in the repo root — it implements `arc4random`
+using `getrandom()`.)
+
+Then build unibo-bp:
+
 ```bash
 cd unibo-dtn/unibo-bp
 rm -rf build-riscv
@@ -203,10 +216,19 @@ cmake \
   -DCMAKE_TOOLCHAIN_FILE=riscv64-linux-gnu.cmake \
   -DCMAKE_BUILD_TYPE=RelWithDebInfo \
   -DWITH_MANPAGE_GENERATION=OFF \
+  -DCMAKE_CXX_EXTENSIONS=OFF \
+  -DCMAKE_EXE_LINKER_FLAGS="-static-libstdc++ -static-libgcc $(pwd)/../../arc4random_compat.o" \
   -S . -B build-riscv
 cmake --build build-riscv -- -j$(nproc)
 cd ../..
 ```
+
+`-DCMAKE_CXX_EXTENSIONS=OFF` makes CMake emit `-std=c++17` instead of `-std=gnu++17`.
+The `gnu++17` variant defines `_GNU_SOURCE` which cascades into `_ISOC23_SOURCE=1`,
+redirecting `strtoll`/`strtoul` to `__isoc23_*@GLIBC_2.38`. Strict C++17 avoids this.
+`-static-libstdc++ -static-libgcc` bundles the GCC 15 C++ runtime so the board's
+GCC 11 libstdc++ is not required. The `arc4random_compat.o` object is linked before
+glibc so the binary's own definition shadows the missing `arc4random@GLIBC_2.36`.
 
 The built static archives land in `build-riscv/Unibo-BP/lib/`.
 
