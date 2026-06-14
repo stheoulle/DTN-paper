@@ -19,7 +19,7 @@ index 2a4701b..c9a782f 100644
  	{ "sqlite", &sqlite_create },
  #endif // DISABLE_SQLITE_STORAGE
 diff --git a/mk/build.mk b/mk/build.mk
-index 15a7914..f52b1cb 100644
+index 15a7914..dee0208 100644
 --- a/mk/build.mk
 +++ b/mk/build.mk
 @@ -5,6 +5,9 @@ include mk/toolchain.mk
@@ -27,8 +27,8 @@ index 15a7914..f52b1cb 100644
                       -Iexternal/tinycbor/src \
                       -Iexternal/util/include \
 +                     -Iexternal/cspcl \
-+                     -I/home/prnm691/Documents/DTN-paper/libcsp/include \
-+                     -I/home/prnm691/Documents/DTN-paper/libcsp/build/include \
++                     -I__DTN_ROOT__/libcsp/include \
++                     -I__DTN_ROOT__/libcsp/build/include \
                       -Igenerated
  
  $(eval $(call addComponentWithRules,components/aap))
@@ -45,7 +45,7 @@ index 15a7914..f52b1cb 100644
  
  # LIB
 diff --git a/mk/posix.mk b/mk/posix.mk
-index f7a2527..a39f4c8 100644
+index f7a2527..4edc83c 100644
 --- a/mk/posix.mk
 +++ b/mk/posix.mk
 @@ -33,6 +33,10 @@ endif
@@ -53,7 +53,7 @@ index f7a2527..a39f4c8 100644
  LDFLAGS += -lpthread
  
 +# libcsp for CSP CLA
-+LDFLAGS += -L/home/prnm691/Documents/DTN-paper/libcsp/build -lcsp -lzmq -lsocketcan
++LDFLAGS += -L__DTN_ROOT__/libcsp/build -lcsp -lzmq -lsocketcan
 +
 +
  ifndef DISABLE_SQLITE_STORAGE

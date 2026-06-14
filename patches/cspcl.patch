@@ -1,64 +1,76 @@
-src/cspcl.c                 |  9 +++++----
- src/cspcl_config.h          | 10 +++++++++-
- ud3tn-integration/dev.patch |  6 +++---
- 3 files changed, 17 insertions(+), 8 deletions(-)
-
---- Changes ---
-
-src/cspcl.c
-  @@ -140,7 +140,7 @@ static csp_conn_t *cspcl_pool_get_or_create_locked(cspcl_conn_pool_t *pool, uint
-  -  csp_conn_t *conn = csp_connect(CSP_PRIO_NORM, dest_addr, dest_port, CSPCL_CSP_TIMEOUT_MS,
-  +  csp_conn_t *conn = csp_connect(CSP_PRIO_NORM, dest_addr, dest_port, CSPCL_CSP_CONNECT_TIMEOUT_MS,
-                                    CSPCL_CSP_CONN_OPTIONS);
-     if (conn == NULL) {
-       pool->stats.connect_failures++;
-  @@ -453,9 +453,10 @@ cspcl_error_t cspcl_send_bundle(cspcl_t *cspcl, const uint8_t *bundle, size_t le
-  -  if (ret != CSP_ERR_NONE) {
-  -    cspcl_pool_invalidate_locked(pool, dest_addr, dest_port);
-  -  }
-  +  /* Always invalidate: with RDP the receiver closes the connection after
-  +   * delivery, so any cached conn is stale by the next send.  Reusing a
-  +   * remotely-closed RDP connection corrupts libcsp internal state. */
-  +  cspcl_pool_invalidate_locked(pool, dest_addr, dest_port);
-   
-     if (cspcl_pool_unlock(pool) != 0) {
-       CSPCL_LOG("pool unlock failed after send");
-  +5 -4
-
-src/cspcl_config.h
-  @@ -33,11 +33,19 @@
-  -/** CSP connection timeout in milliseconds */
-  +/** CSP timeout (ms) for SFP fragment sends and csp_accept */
-   #ifndef CSPCL_CSP_TIMEOUT_MS
-   #define CSPCL_CSP_TIMEOUT_MS 1000
-   #endif
-   
-  +/** CSP timeout (ms) per RDP SYN retransmission attempt in csp_connect.
-  + *  CSP RDP retries ~10 times, so the total failure window is
-  + *  CSPCL_CSP_CONNECT_TIMEOUT_MS * ~10.  Keep this well under any caller's
-  + *  PDU watchdog (unibo-bp fires at ~10 s, so stay under ~1 s total). */
-  +#ifndef CSPCL_CSP_CONNECT_TIMEOUT_MS
-  +#define CSPCL_CSP_CONNECT_TIMEOUT_MS 100
-  +#endif
-  +
-   /** CSP connection options for outbound connections (bitmask of CSP_O_*) */
-   #ifndef CSPCL_CSP_CONN_OPTIONS
-   #define CSPCL_CSP_CONN_OPTIONS CSP_O_RDP
-  +9 -1
-
-ud3tn-integration/dev.patch
-  @@ -27,8 +27,8 @@ index b109adb..a33110c 100644
-  -+                     -I/home/mathias/libcsp-src/include \
-  -+                     -I/home/mathias/libcsp-src/build/include \
-  ++                     -I/home/light/Documents/DO5/DTN-paper/libcsp/include \
-  ++                     -I/home/light/Documents/DO5/DTN-paper/libcsp/build/include \
-                         -Igenerated
-    
-    $(eval $(call addComponentWithRules,components/aap))
-  @@ -53,7 +53,7 @@ index 2adaa41..469dd6c 100644
-  -+LDFLAGS += -L/home/mathias/libcsp-src/build -lcsp -lzmq -lsocketcan
-  ++LDFLAGS += -L/home/light/Documents/DO5/DTN-paper/libcsp/build -lcsp -lzmq -lsocketcan
-   +
-   +
-    ifndef DISABLE_SQLITE_STORAGE
-  +3 -3
+diff --git a/src/cspcl.c b/src/cspcl.c
+index 77d9666..6c9d8f9 100644
+--- a/src/cspcl.c
++++ b/src/cspcl.c
+@@ -140,7 +140,7 @@ static csp_conn_t *cspcl_pool_get_or_create_locked(cspcl_conn_pool_t *pool, uint
+     pool->stats.evictions++;
+   }
+ 
+-  csp_conn_t *conn = csp_connect(CSP_PRIO_NORM, dest_addr, dest_port, CSPCL_CSP_TIMEOUT_MS,
++  csp_conn_t *conn = csp_connect(CSP_PRIO_NORM, dest_addr, dest_port, CSPCL_CSP_CONNECT_TIMEOUT_MS,
+                                  CSPCL_CSP_CONN_OPTIONS);
+   if (conn == NULL) {
+     pool->stats.connect_failures++;
+@@ -453,9 +453,10 @@ cspcl_error_t cspcl_send_bundle(cspcl_t *cspcl, const uint8_t *bundle, size_t le
+   /* Use CSP's SFP to send the bundle with automatic fragmentation */
+   int ret = csp_sfp_send(conn, bundle, (unsigned int) len, CSPCL_MAX_PAYLOAD, CSPCL_CSP_TIMEOUT_MS);
+ 
+-  if (ret != CSP_ERR_NONE) {
+-    cspcl_pool_invalidate_locked(pool, dest_addr, dest_port);
+-  }
++  /* Always invalidate: with RDP the receiver closes the connection after
++   * delivery, so any cached conn is stale by the next send.  Reusing a
++   * remotely-closed RDP connection corrupts libcsp internal state. */
++  cspcl_pool_invalidate_locked(pool, dest_addr, dest_port);
+ 
+   if (cspcl_pool_unlock(pool) != 0) {
+     CSPCL_LOG("pool unlock failed after send");
+diff --git a/src/cspcl_config.h b/src/cspcl_config.h
+index 0b940a6..8539c79 100644
+--- a/src/cspcl_config.h
++++ b/src/cspcl_config.h
+@@ -33,11 +33,19 @@
+ #define CSPCL_PORT_BP 10
+ #endif
+ 
+-/** CSP connection timeout in milliseconds */
++/** CSP timeout (ms) for SFP fragment sends and csp_accept */
+ #ifndef CSPCL_CSP_TIMEOUT_MS
+ #define CSPCL_CSP_TIMEOUT_MS 1000
+ #endif
+ 
++/** CSP timeout (ms) per RDP SYN retransmission attempt in csp_connect.
++ *  CSP RDP retries ~10 times, so the total failure window is
++ *  CSPCL_CSP_CONNECT_TIMEOUT_MS * ~10.  Keep this well under any caller's
++ *  PDU watchdog (unibo-bp fires at ~10 s, so stay under ~1 s total). */
++#ifndef CSPCL_CSP_CONNECT_TIMEOUT_MS
++#define CSPCL_CSP_CONNECT_TIMEOUT_MS 100
++#endif
++
+ /** CSP connection options for outbound connections (bitmask of CSP_O_*) */
+ #ifndef CSPCL_CSP_CONN_OPTIONS
+ #define CSPCL_CSP_CONN_OPTIONS CSP_O_RDP
+diff --git a/ud3tn-integration/dev.patch b/ud3tn-integration/dev.patch
+index d373dff..013d291 100644
+--- a/ud3tn-integration/dev.patch
++++ b/ud3tn-integration/dev.patch
+@@ -27,8 +27,8 @@ index b109adb..a33110c 100644
+                       -Iexternal/tinycbor/src \
+                       -Iexternal/util/include \
+ +                     -Iexternal/cspcl \
+-+                     -I/home/mathias/libcsp-src/include \
+-+                     -I/home/mathias/libcsp-src/build/include \
+++                     -I__DTN_ROOT__/libcsp/include \
+++                     -I__DTN_ROOT__/libcsp/build/include \
+                       -Igenerated
+  
+  $(eval $(call addComponentWithRules,components/aap))
+@@ -53,7 +53,7 @@ index 2adaa41..469dd6c 100644
+  LDFLAGS += -lpthread
+  
+ +# libcsp for CSP CLA
+-+LDFLAGS += -L/home/mathias/libcsp-src/build -lcsp -lzmq -lsocketcan
+++LDFLAGS += -L__DTN_ROOT__/libcsp/build -lcsp -lzmq -lsocketcan
+ +
+ +
+  ifndef DISABLE_SQLITE_STORAGE

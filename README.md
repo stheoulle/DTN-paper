@@ -22,41 +22,6 @@ cd ..
 git clone --depth 1 https://github.com/theotchlx/asabr_bdm.git
 ```
 
-Create a contact plan `test.cp`:
-
-```json
-# Node entry with no management: node <id> <name>
-node 0 node0
-node 1 node1
-node 2 node2
-node 3 node3
-node 4 node4
-node 5 node5
-
-# Contact entry with a legacy approach: contact <from> <to> <start> <end> <rate> <delay>
-contact 0 1 0 9999999999 10000 10
-contact 1 2 0 9999999999 15000 15
-contact 2 3 0 9999999999 20000 20
-contact 3 4 0 9999999999 25000 25
-contact 4 5 0 9999999999 30000 30
-```
-
-And a corresponding EID/CLA <-> node ID map in JSON :
-Because we will launch only 2 BPAs (Nodes 0 and 1) and plug our BDM to Node 0, we are only interested in the contacts between Nodes 0 and 1. So we don't need to specify the other CLAs.
-
-`test.json`
-
-```json
-{
-    "dtn://node1.dtn/": {"name": "node1", "cla_addr": null},
-    "dtn://node2.dtn/": {"name": "node2", "cla_addr": "mtcp:127.0.0.1:4225"},
-    "dtn://node3.dtn/": {"name": "node3", "cla_addr": null},
-    "dtn://node4.dtn/": {"name": "node4", "cla_addr": null},
-    "dtn://node5.dtn/": {"name": "node5", "cla_addr": null},
-    "dtn://node6.dtn/": {"name": "node6", "cla_addr": null}
-}
-```
-
 **Install the python dependencies defined in pyproject.toml into your venv**, then plug our BDM to Node 0:
 
 ```bash
@@ -170,5 +135,25 @@ cd charon
 make proto   # regenerates src/proto/aap2.pb-c.{c,h} from proto/aap2.proto
 mkdir build
 make
+cd ..
 # binary: build/charon
 ```
+
+# Apply patches
+
+After all repos are cloned, apply the DTN-paper patches in one step from the repo root:
+
+```bash
+bash patches/apply.sh
+```
+
+This patches charon, cspcl, hardy, and ud3tn in place. The script must be run **before** building any of those components.
+
+What each patch does:
+
+| Repo | Changes |
+|------|---------|
+| `charon` | Configurable TUN name, `/30` prefix, IPv6 disable, IPv4-only filter, ACK wait in `send_aap2` |
+| `cspcl` | Separate RDP connect timeout (100 ms), always-invalidate connection pool after send |
+| `hardy` | `eid_map` / `reverse_eid_map` so A-SABR can route to `dtn://` EIDs, not just IPN |
+| `ud3tn` | CSP CLA registration, libcsp include/link paths, new `cla_csp` and `cspcl` source files |

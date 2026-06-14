@@ -1,129 +1,147 @@
-src/aap2_client.c |  38 ++++++++++++++++++++++++++++++++++++--
- src/charon.c      |   5 +++++
- src/config.c      |   6 ++++++
- src/config.h      |   1 +
- src/tun.c         |   9 ++++++---
- 5 files changed, 54 insertions(+), 5 deletions(-)
-
---- Changes ---
-
-src/aap2_client.c
-  @@ -322,6 +322,12 @@ int handle_aap2_response(uint8_t *message, uint64_t msg_size) {
-  +  if (!aap2_response) {
-  +    log_error("Failed to unpack AAPResponse");
-  +    free(message);
-  +    return -1;
-  +  }
-  +
-     log_info("%i", aap2_response->response_status);
-  +6 -0
-
-  @@ -416,11 +422,39 @@ int send_aap2(aap2_client *client, const char *dst_eid, uint8_t *payload,
-  -  log_info("Configuration sent !");
-  +  log_info("Bundle sent !");
-     free(buf);
-     free(eid);
-
-  -  return -1;
-  +  /* Wait up to 5 s for the ACK.  In BDM mode the ACK only arrives after
-  +   * asabr_bdm dispatches the bundle, so this can take a moment. */
-  +  struct timeval tv = { .tv_sec = 5, .tv_usec = 0 };
-  +  setsockopt(client->socket_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-  +
-  +  uint64_t msg_size;
-  +  if (recv_varint(client->socket_fd, &msg_size) < 0) {
-  +    log_warn("Bundle ACK not received within timeout — bundle is in flight");
-  +    tv.tv_sec = 0; tv.tv_usec = 0;
-  +    setsockopt(client->socket_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-  +    return 0;
-  +  }
-  +
-  +  /* Reset to blocking for future use */
-  +  tv.tv_sec = 0; tv.tv_usec = 0;
-  +  setsockopt(client->socket_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-  +
-  +  uint8_t *ack = malloc(msg_size);
-  +  if (!ack || recv_exact(client->socket_fd, ack, msg_size) < 0) {
-  +    log_error("Couldn't receive bundle ACK body");
-  +    free(ack);
-  +    return -1;
-  +  }
-  +  if (handle_aap2_response(ack, msg_size) < 0) {
-  +    log_error("Bundle was rejected by BPA");
-  +    return -1;
-  +  }
-  +
-  +  return 0;
+diff --git a/src/aap2_client.c b/src/aap2_client.c
+index 72f7bd9..751b5bc 100644
+--- a/src/aap2_client.c
++++ b/src/aap2_client.c
+@@ -322,6 +322,12 @@ int handle_aap2_response(uint8_t *message, uint64_t msg_size) {
+   Aap2__AAPResponse *aap2_response =
+       aap2__aapresponse__unpack(NULL, msg_size, message);
+ 
++  if (!aap2_response) {
++    log_error("Failed to unpack AAPResponse");
++    free(message);
++    return -1;
++  }
++
+   log_info("%i", aap2_response->response_status);
+ 
+   switch (aap2_response->response_status) {
+@@ -416,11 +422,39 @@ int send_aap2(aap2_client *client, const char *dst_eid, uint8_t *payload,
+     return -1;
    }
-
-   int send_response_status(aap2_client *client) {
-  +30 -2
-
-src/charon.c
-  @@ -51,6 +51,9 @@ int charon_init(charon_tunnel *tunnel, charon_config *config) {
-  +  if (tun_fd < 0) {
-  +    return -1;
-  +  }
-
-     tunnel->dtn_tx_interface = tx;
-     tunnel->dtn_rx_interface = rx;
-  @@ -101,6 +104,8 @@ void *_charon_listen_tun(void *arg) {
-  +      if (nread < 1 || (tun_buf[0] >> 4) != 4)
-  +        continue; /* drop non-IPv4 (e.g. IPv6 NDP) */
-         charon_forward_packet(tunnel, config, tun_buf, nread);
+ 
+-  log_info("Configuration sent !");
++  log_info("Bundle sent !");
+   free(buf);
+   free(eid);
+ 
+-  return -1;
++  /* Wait up to 5 s for the ACK.  In BDM mode the ACK only arrives after
++   * asabr_bdm dispatches the bundle, so this can take a moment. */
++  struct timeval tv = { .tv_sec = 5, .tv_usec = 0 };
++  setsockopt(client->socket_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
++
++  uint64_t msg_size;
++  if (recv_varint(client->socket_fd, &msg_size) < 0) {
++    log_warn("Bundle ACK not received within timeout — bundle is in flight");
++    tv.tv_sec = 0; tv.tv_usec = 0;
++    setsockopt(client->socket_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
++    return 0;
++  }
++
++  /* Reset to blocking for future use */
++  tv.tv_sec = 0; tv.tv_usec = 0;
++  setsockopt(client->socket_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
++
++  uint8_t *ack = malloc(msg_size);
++  if (!ack || recv_exact(client->socket_fd, ack, msg_size) < 0) {
++    log_error("Couldn't receive bundle ACK body");
++    free(ack);
++    return -1;
++  }
++  if (handle_aap2_response(ack, msg_size) < 0) {
++    log_error("Bundle was rejected by BPA");
++    return -1;
++  }
++
++  return 0;
+ }
+ 
+ int send_response_status(aap2_client *client) {
+diff --git a/src/charon.c b/src/charon.c
+index 9ed34b1..e7265f5 100644
+--- a/src/charon.c
++++ b/src/charon.c
+@@ -117,6 +117,8 @@ void *_charon_listen_tun(void *arg) {
+         }
+         log_error("read() failed: %s, net_fd : %i", strerror(errno));
        }
++      if (nread < 1 || (net_buf[0] >> 4) != 4)
++        continue; /* drop non-IPv4 (e.g. IPv6 NDP) */
+       charon_forward_packet(tunnel, config, net_buf, nread);
      }
-  +5 -0
-
-src/config.c
-  @@ -22,6 +22,8 @@ static int handler(void *user, const char *section, const char *name,
-  +    } else if (strcmp(name, "name") == 0) {
-  +      pconfig->tun_name = strdup(value);
-       } else {
-         return 0; /* unknown name */
-       }
-  @@ -34,11 +36,14 @@ static int handler(void *user, const char *section, const char *name,
-  +  memset(config, 0, sizeof(charon_config));
-     if (ini_parse(filename, handler, config) < 0) {
-       log_error("Failed to read config file '%s'", filename);
-       free_config(config);
-       return NULL;
+   }
+diff --git a/src/config.c b/src/config.c
+index 41933cc..fe4753c 100644
+--- a/src/config.c
++++ b/src/config.c
+@@ -23,6 +23,8 @@ static int handler(void *user, const char *section, const char *name,
+       pconfig->address = strdup(value);
+     } else if (strcmp(name, "mtu") == 0) {
+       pconfig->mtu = atoi(value);
++    } else if (strcmp(name, "name") == 0) {
++      pconfig->tun_name = strdup(value);
+     } else {
+       return 0; /* unknown name */
      }
-  +  if (!config->tun_name)
-  +    config->tun_name = strdup("tun0");
-     return config;
+@@ -50,12 +52,14 @@ static int handler(void *user, const char *section, const char *name,
+ 
+ charon_config *read_config(const char *filename) {
+   charon_config *config = calloc(1, sizeof(charon_config));
+-  
++  memset(config, 0, sizeof(charon_config));
+   if (ini_parse(filename, handler, config) < 0) {
+     log_error("Failed to read config file '%s'", filename);
+     free_config(config);
+     return NULL;
    }
-
-  @@ -48,5 +53,6 @@ void free_config(charon_config *config) {
-  +    free(config->tun_name);
-       free(config);
-   }
-  +6 -0
-
-src/config.h
-  @@ -3,6 +3,7 @@ typedef struct {
-  +  char *tun_name;
-     char *secret_name;
-     int mtu;
-   } charon_config;
-  +1 -0
-
-src/tun.c
-  @@ -11,7 +11,9 @@
-  -  snprintf(cmd, sizeof(cmd), "ip addr add %s/24 dev %s", ip_address, interface);
-  +  snprintf(cmd, sizeof(cmd), "sysctl -qw net.ipv6.conf.%s.disable_ipv6=1", interface);
-  +  system(cmd);
-  +  snprintf(cmd, sizeof(cmd), "ip addr add %s/30 dev %s", ip_address, interface);
-     log_info("Setting up route: %s", cmd);
-     system(cmd);
-     snprintf(cmd, sizeof(cmd), "ip link set %s mtu %d up", interface, mtu);
-  @@ -39,8 +41,9 @@ int tun_alloc(char *ifname) {
-  -  int fd = tun_alloc(DEFAULT_TUNNEL_NAME);
-  -  setup_route(DEFAULT_TUNNEL_NAME, config->address, config->mtu);
-  +  int fd = tun_alloc(config->tun_name);
-  +  if (fd < 0) return -1;
-  +  setup_route(config->tun_name, config->address, config->mtu);
-     return fd;
-   }
-
-  +6 -3
++  if (!config->tun_name)
++    config->tun_name = strdup("tun0");
+   if(config->interface_type == IP) {
+ 		  log_info("using IP mode with %s and MTU = %i", config->address, config->mtu);
+   } else if(config->interface_type == CAN) {
+@@ -72,5 +76,6 @@ void free_config(charon_config *config) {
+   free(config->remote_eid);
+   free(config->secret_name);
+   free(config->address);
++  free(config->tun_name);
+   free(config);
+ }
+diff --git a/src/config.h b/src/config.h
+index 999aba2..e60ca4b 100644
+--- a/src/config.h
++++ b/src/config.h
+@@ -14,6 +14,7 @@ typedef struct {
+   char *remote_eid;
+   // ip
+   char *address;
++  char *tun_name;
+   char *secret_name;
+   int mtu;
+   // can
+diff --git a/src/tun.c b/src/tun.c
+index 5a16e7c..f349616 100644
+--- a/src/tun.c
++++ b/src/tun.c
+@@ -11,7 +11,9 @@
+ 
+ void setup_route(char *interface, char *ip_address, int mtu) {
+   char cmd[256];
+-  snprintf(cmd, sizeof(cmd), "ip addr add %s/24 dev %s", ip_address, interface);
++  snprintf(cmd, sizeof(cmd), "sysctl -qw net.ipv6.conf.%s.disable_ipv6=1", interface);
++  system(cmd);
++  snprintf(cmd, sizeof(cmd), "ip addr add %s/30 dev %s", ip_address, interface);
+   log_info("Setting up route: %s", cmd);
+   system(cmd);
+   snprintf(cmd, sizeof(cmd), "ip link set %s mtu %d up", interface, mtu);
+@@ -39,8 +41,9 @@ int tun_alloc(char *ifname) {
+ }
+ 
+ int open_tunnel(charon_config *config) {
+-  int fd = tun_alloc(DEFAULT_TUNNEL_NAME);
+-  setup_route(DEFAULT_TUNNEL_NAME, config->address, config->mtu);
++  int fd = tun_alloc(config->tun_name);
++  if (fd < 0) return -1;
++  setup_route(config->tun_name, config->address, config->mtu);
+   return fd;
+ }
+ 
