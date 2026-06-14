@@ -99,7 +99,7 @@ cd ../..
 ```bash
 cd hardy
 git checkout feat/rdp
-sudo apt install clang libbz2-dev
+sudo pacman -S clang libbz2-dev
 CSP_REPO_DIR=$(pwd)/../libcsp CSP_BUILD_DIR=$(pwd)/../libcsp/build \
   cargo build --release -p hardy-bpa-server --features cspcl
 cd ..
