@@ -1,3 +1,5 @@
+# This README is here to guide you to run the demo for the paper 'CSPCL: A Stepwise, Non-Disruptive Transition to Delay-Tolerant Networking for CubeSat Operators''
+
 # Setup
 
 ## Step 1 — Clone everything
