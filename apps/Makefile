@@ -12,7 +12,7 @@ sender: sender.c
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
 receiver: receiver.c
-	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $< -lm $(LDFLAGS)
 
 clean:
 	rm -f $(BINS)

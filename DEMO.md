@@ -316,6 +316,70 @@ echo "hello DTN" | python3 -m ud3tn_utils.aap2.bin.aap2_send \
 
 ---
 
+## Phase 5 — Measurement experiment
+
+> Requires root (for `ip netns exec`).  Start the full stack (Phases 1–3, T1–T9) before running any of the commands below.  Build the apps first if needed: `make -C apps`.
+
+The measurement tools use an embedded monotonic timestamp in every datagram so that end-to-end latency is measured accurately with a single shared clock (sender and receiver run on the same machine).
+
+### Latency and throughput sweep
+
+`measure.sh` sweeps a configurable set of payload sizes (default: 64, 256, 1024, 4096 bytes) and sends 50 packets per size.  For each run it starts the receiver in `bob_ns`, fires a burst from `alice_ns`, waits for all packets, then prints a summary table.
+
+```bash
+sudo ./apps/measure.sh [output_dir]
+```
+
+Expected output:
+
+```
+size(B)     delivered     min(ms)      mean(ms)     max(ms)      throughput
+64          50/50         ...          ...          ...          X kB/s
+256         50/50         ...          ...          ...          X kB/s
+1024        50/50         ...          ...          ...          X kB/s
+4096        50/50         ...          ...          ...          X kB/s
+```
+
+Per-packet logs (one `RECV seq=N latency=X.XXXms size=N` line each) are saved in `output_dir/size_<N>.log`.
+
+To run sender and receiver manually and control every parameter:
+
+```bash
+# Terminal A — receiver in bob_ns (exits after 100 packets and prints stats)
+sudo ip netns exec bob_ns ./apps/receiver 4000 100
+
+# Terminal B — sender in alice_ns (100 packets, 1024-byte payload, burst)
+sudo ip netns exec alice_ns ./apps/sender 10.0.0.2 4000 100 1024 0
+```
+
+Sender usage: `sender <remote_ip> [port=4000] [count=100] [size=256] [interval_ms=0]`
+- `size` — total datagram payload in bytes (minimum 28)
+- `interval_ms=0` — burst mode; set to e.g. `100` for one packet per 100 ms
+
+Receiver usage: `receiver [port=4000] [expected_count=0]`
+- `expected_count=0` — run forever; send SIGINT (Ctrl-C) at any time to print stats
+
+### Store-and-forward disruption test
+
+`disrupt.sh` sends 60 packets at 100 ms intervals (6-second window), drops `vcan0` at t=3 s, restores it at t=13 s, and verifies that all 60 packets are eventually delivered via the DTN store-and-forward mechanism.
+
+```bash
+sudo ./apps/disrupt.sh
+```
+
+Timeline:
+
+```
+t=0s   sender starts; bundles flow freely through alice→unibo→hardy→bob
+t=3s   vcan0 DOWN — CSPCL connections break; BPAs store undelivered bundles
+t=13s  vcan0 UP   — contacts restored; stored bundles forwarded to destination
+tend   receiver reports 60/60 delivered
+```
+
+The script prints a `PASS` / `PARTIAL` verdict at the end.  A full pass demonstrates store-and-forward recovery under a simulated link interruption — the core DTN capability.
+
+---
+
 ## Cleanup
 
 ```bash
