@@ -1,0 +1,33 @@
+latency  : min=5.163 ms  mean=12.396 ms  max=19.411 ms  stddev=3.821 ms
+latency  : min=11.011 ms  mean=15.344 ms  max=17.669 ms  stddev=1.808 ms
+latency  : min=8.205 ms  mean=13.181 ms  max=17.616 ms  stddev=2.690 ms
+latency  : min=6.496 ms  mean=13.895 ms  max=18.951 ms  stddev=3.284 ms
+latency  : min=9.699 ms  mean=13.945 ms  max=17.817 ms  stddev=2.842 ms
+latency  : min=7.907 ms  mean=13.120 ms  max=19.271 ms  stddev=2.990 ms
+latency  : min=7.149 ms  mean=13.138 ms  max=16.953 ms  stddev=2.521 ms
+
+
+Exemple of disruption:
+
+[17:32:53] Starting sender (15 pkts × 100ms = ~1s)
+[17:32:53] Waiting for receiver to report all 15 packets...
+
+=== Results ===
+RECV seq=1 latency=11.161ms size=2048
+RECV seq=2 latency=17.352ms size=2048
+RECV seq=3 latency=10.551ms size=2048
+RECV seq=4 latency=17.567ms size=2048
+RECV seq=5 latency=14.706ms size=2048
+RECV seq=6 latency=16.394ms size=2048
+RECV seq=7 latency=17.059ms size=2048
+RECV seq=8 latency=1019.384ms size=2048
+RECV seq=9 latency=919.230ms size=2048
+RECV seq=10 latency=819.711ms size=2048
+RECV seq=11 latency=16080.640ms size=2048
+RECV seq=12 latency=15989.231ms size=2048
+RECV seq=13 latency=15890.241ms size=2048
+RECV seq=15 latency=15689.910ms size=2048
+RECV seq=14 latency=15790.564ms size=2048
+--- measurement summary ---
+received : 15 / 15  (100.0% delivery rate)
+latency  : min=10.551 ms  mean=5486.913 ms  max=16080.640 ms  stddev=7363.069 ms

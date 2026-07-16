@@ -1,0 +1,66 @@
+Review 1
+Strong aspects: Comments to the author: what are the strong aspects of the paper
+
+The paper addresses a very practical and timely challenge for CubeSat operators who want to adopt Delay‑Tolerant Networking without discarding their existing CSP‑based avionics stacks. The motivation is well articulated, and the authors clearly understand the operational constraints of small‑satellite missions. The CSPCL concept is compelling because it offers a non‑disruptive, incremental path to DTN adoption rather than a wholesale architectural replacement. The integration work across three independent BPAs (Hardy, uD3TN, and Unibo‑BP) is a strong contribution, demonstrating real interoperability rather than a purely theoretical proposal. The detailed descriptions of how CSPCL integrates with each BPA show careful engineering and awareness of the architectural differences between implementations. The introduction of Charon as a proxy for legacy CSP and IP traffic is another practical contribution that lowers the barrier to DTN experimentation. The experimental validation on PolarFire RISC‑V hardware, mirroring a real CubeSat platform, adds credibility and shows that the approach is not limited to simulation or desktop environments.
+Weak aspects: Comments to the author: what are the weak aspects of the paper?
+
+The paper focuses heavily on integration mechanics but provides limited performance characterization. There is little quantitative evaluation of throughput, latency, overhead, or resource usage, which makes it difficult to assess how CSPCL behaves under realistic mission loads. The Charon proxy is described as a transitional mechanism, but its limitations—especially the lack of a local queue and the inability to preserve CSP routing semantics—are significant and deserve deeper analysis. The CAN tunneling discussion highlights a potential fragmentation and ordering issue, but the paper does not evaluate how often this occurs or how severe the impact might be. The experimental setup, while representative, uses virtual CAN for most of the validation, and the physical hardware tests are described only briefly. The paper also does not fully address how CSPCL scales beyond the four‑node topology or how it behaves under disrupted or scheduled contacts, even though DTN is designed for such conditions. Finally, the path toward standardization is mentioned but not clearly outlined, leaving the long‑term interoperability story somewhat open‑ended.
+Recommended changes: Recommended changes. Please indicate any changes that should be made to the paper if accepted.
+
+The paper would benefit from adding quantitative performance results, even if limited to throughput, latency, and CPU load across the different BPAs. A small set of benchmarks would help readers understand the practical cost of layering BP over CSP. The Charon section could be strengthened by discussing how a local buffer or queue would be integrated and what reliability guarantees it could provide. Expanding the hardware validation section to include disrupted contact scenarios or scheduled contact plans would better demonstrate DTN’s value in a CubeSat context. It would also be helpful to outline a clearer roadmap toward a formal CSPCL specification, including which behaviors would need standardization for multi‑vendor interoperability. Finally, a short discussion of security considerations would round out the practical deployment picture.
+Relevance and timeliness: Rate the importance and timeliness of the topic addressed in the paper within its area of research.
+
+Good (4)
+Technical content and scientific rigour: Rate the technical content of the paper (e.g.: completeness of the analysis or simulation study, thoroughness of the treatise, accuracy of the models, etc.), its soundness and scientific rigour.
+
+Solid work of notable importance. (4)
+Novelty and originality: Rate the novelty and originality of the ideas or results presented in the paper.
+
+Significant original work and novel results. (4)
+Quality of presentation: Rate the paper organization, the clearness of text and figures, the completeness and accuracy of references.
+
+Well written. (4)
+Recommendation: Reviewer's recommendation
+
+Weak accept (4)
+Review 2
+Strong aspects: Comments to the author: what are the strong aspects of the paper
+
+-The paper addresses a genuine adoption-friction gap, targeting operators with existing CSP infrastructure who can't justify a full rip-and-replace. The motivation is backed by real institutional context (IOAG recommendation, NASA/ESA programs) and a named, near-term mission (CSUM's 12U CubeSat), not a hypothetical scenario.
+
+    The same CSPCL library is integrated into three structurally very different BPA implementations, Unibo-BP (C++, process-isolated via IPC), µD3TN (C, in-process/embedded), and Hardy (Rust, async/Tokio via FFI), and each integration is described with real technical specificity (callback names, data flow direction, IPC/FFI mechanism differences), not hand-waved.
+
+-Clear, well-organized writing for the conceptual/background material. The DTN/BP/BPA/CLA explanations in the introduction and background are pedagogically solid and would let an unfamiliar reader follow the architecture.
+Weak aspects: Comments to the author: what are the weak aspects of the paper?
+
+-There are no quantitative results reported anywhere. Despite the abstract's claim that "results demonstrate end-to-end feasibility," Section V never reports a single performance number, no bundle delivery latency, no throughput, no success/failure rate across the 4-hop chain, no measurement of the described connection-pool behavior under load. The contribution is "it worked," which is a substantially weaker claim than the framing implies.
+
+-The authors explicitly admit the contact plan has "no scheduled disruptions, making this a connectivity validation rather than a disruption-tolerance test." This means the experiment never exercises store-and-forward behavior under an actual link interruption, arguably the single most important missing test for a paper about delay/disruption-tolerant networking specifically.
+
+-Detailed implementation description without evaluation. The connection-pool mechanism (LRU eviction, monotonic tick counter, mutex-based thread safety, age-based invalidation) is described with precise technical terminology but is never measured or tested under any load/failure scenario in the experiments. This should be addressed as a limitation of this work and framed as future work.
+
+-Charon (the second headline contribution) is acknowledged by the authors as architecturally limited. It supports only µD3TN as BPA, lacks a local packet queue (creating a single point of failure if the BPA goes down), and in CSP mode does not support CSP's own routing features. These are reasonable to flag as future work, but it means Charon is more accurately a proof-of-concept than a complete contribution alongside CSPCL.
+Recommended changes: Recommended changes. Please indicate any changes that should be made to the paper if accepted.
+
+-It is important to report basic quantitative metrics for the experimental validation, for example bundle delivery latency across the 4-hop chain, achieved throughput against the modeled 50/100 kbps contact rates, and connection-pool behavior under contention to support the "feasibility" claim with actual measurements rather than a binary "it worked."
+
+-Add at least one disruption scenario (for example, drop a link mid-transfer and confirm store-and-forward recovery), given this is the defining capability DTN is meant to provide and is currently entirely untested.
+
+-Revise Section III-A to clearly separate CSPCL's actual contribution from properties inherent to the CAN bus standard (CRC, arbitration, etc.), so the paper's claimed engineering contribution isn't conflated with pre-existing CAN-bus features.
+
+-Clarify Charon's current scope and limitations more prominently (single-BPA support, no local queue/single point of failure, no CSP routing support) as explicit boundaries of the contribution rather than only mentioning them in passing within the future-work discussion.
+Relevance and timeliness: Rate the importance and timeliness of the topic addressed in the paper within its area of research.
+
+Good (4)
+Technical content and scientific rigour: Rate the technical content of the paper (e.g.: completeness of the analysis or simulation study, thoroughness of the treatise, accuracy of the models, etc.), its soundness and scientific rigour.
+
+Valid work but limited contribution. (3)
+Novelty and originality: Rate the novelty and originality of the ideas or results presented in the paper.
+
+Some interesting ideas and results on a subject well investigated. (3)
+Quality of presentation: Rate the paper organization, the clearness of text and figures, the completeness and accuracy of references.
+
+Well written. (4)
+Recommendation: Reviewer's recommendation
+
+Borderline (3)

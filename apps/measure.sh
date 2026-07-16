@@ -24,8 +24,8 @@ RECEIVER="$SCRIPT_DIR/receiver"
 OUT_DIR="${1:-/tmp/dtn_measure_$(date +%Y%m%d_%H%M%S)}"
 PORT=4000
 REMOTE=10.0.0.2
-COUNT=50             # packets per run
-TIMEOUT=120          # seconds to wait for receiver before giving up
+COUNT=20             # packets per run
+TIMEOUT=30          # seconds to wait for receiver before giving up
 SIZES=(64 256 1024 4096)
 
 if [[ $EUID -ne 0 ]]; then

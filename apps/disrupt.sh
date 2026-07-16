@@ -22,12 +22,12 @@ SENDER="$SCRIPT_DIR/sender"
 RECEIVER="$SCRIPT_DIR/receiver"
 PORT=4000
 REMOTE=10.0.0.2
-COUNT=60             # total packets to send
-SIZE=512             # bytes per packet
+COUNT=15             # total packets to send
+SIZE=2048             # bytes per packet
 INTERVAL_MS=100      # 100 ms between sends → 6 s total send window
 LINK_DOWN_AFTER=3    # seconds after sender starts to cut the link
 LINK_DOWN_FOR=10     # seconds the link stays down
-TIMEOUT=120          # max seconds to wait for receiver after link restored
+TIMEOUT=30          # max seconds to wait for receiver after link restored
 LOGFILE="/tmp/dtn_disrupt_$(date +%Y%m%d_%H%M%S).log"
 
 if [[ $EUID -ne 0 ]]; then
@@ -61,17 +61,17 @@ ip netns exec alice_ns "$SENDER" $REMOTE $PORT $COUNT $SIZE $INTERVAL_MS \
     >> "$LOGFILE" 2>&1 &
 SEND_PID=$!
 
-# Cut the link while sender is still running
-sleep $LINK_DOWN_AFTER
-echo "[$(date +%T)] Bringing vcan0 DOWN — simulating link interruption"
-ip link set vcan0 down
+# # Cut the link while sender is still running
+# sleep $LINK_DOWN_AFTER
+# echo "[$(date +%T)] Bringing vcan0 DOWN — simulating link interruption"
+# ip link set vcan0 down
 
-sleep $LINK_DOWN_FOR
-echo "[$(date +%T)] Bringing vcan0 UP   — store-and-forward should deliver queued bundles"
-ip link set vcan0 up
+# sleep $LINK_DOWN_FOR
+# echo "[$(date +%T)] Bringing vcan0 UP   — store-and-forward should deliver queued bundles"
+# ip link set vcan0 up
 
-# Wait for sender to finish (it may still be sending)
-wait $SEND_PID 2>/dev/null || true
+# # Wait for sender to finish (it may still be sending)
+# wait $SEND_PID 2>/dev/null || true
 
 # Wait for receiver to collect all packets (or timeout)
 echo "[$(date +%T)] Waiting for receiver to report all $COUNT packets..."
