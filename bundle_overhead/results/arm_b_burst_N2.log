@@ -1,0 +1,40 @@
+[bundle_receiver] listening on addr 21  (timeout=5000 ms per bundle)
+RECV_BUNDLE bundle_seq=1 n=2 bytes=72
+RECV_BUNDLE bundle_seq=2 n=2 bytes=72
+RECV_BUNDLE bundle_seq=3 n=2 bytes=72
+RECV_BUNDLE bundle_seq=4 n=2 bytes=72
+RECV_BUNDLE bundle_seq=5 n=2 bytes=72
+RECV_BUNDLE bundle_seq=6 n=2 bytes=72
+RECV_BUNDLE bundle_seq=7 n=2 bytes=72
+RECV_BUNDLE bundle_seq=8 n=2 bytes=72
+RECV_BUNDLE bundle_seq=9 n=2 bytes=72
+RECV_BUNDLE bundle_seq=10 n=2 bytes=72
+RECV_BUNDLE bundle_seq=11 n=2 bytes=72
+RECV_BUNDLE bundle_seq=12 n=2 bytes=72
+RECV_BUNDLE bundle_seq=13 n=2 bytes=72
+RECV_BUNDLE bundle_seq=14 n=2 bytes=72
+RECV_BUNDLE bundle_seq=15 n=2 bytes=72
+RECV_BUNDLE bundle_seq=16 n=2 bytes=72
+RECV_BUNDLE bundle_seq=17 n=2 bytes=72
+RECV_BUNDLE bundle_seq=18 n=2 bytes=72
+RECV_BUNDLE bundle_seq=19 n=2 bytes=72
+RECV_BUNDLE bundle_seq=20 n=2 bytes=72
+RECV_BUNDLE bundle_seq=21 n=2 bytes=72
+RECV_BUNDLE bundle_seq=22 n=2 bytes=72
+RECV_BUNDLE bundle_seq=23 n=2 bytes=72
+RECV_BUNDLE bundle_seq=24 n=2 bytes=72
+RECV_BUNDLE bundle_seq=25 n=2 bytes=72
+RECV_BUNDLE bundle_seq=26 n=2 bytes=72
+RECV_BUNDLE bundle_seq=27 n=2 bytes=72
+RECV_BUNDLE bundle_seq=28 n=2 bytes=72
+RECV_BUNDLE bundle_seq=29 n=2 bytes=72
+RECV_BUNDLE bundle_seq=30 n=2 bytes=72
+
+--- bundle measurement summary ---
+bundles received: 30 / 30  (100.0%)
+unit latency: min=0.213 ms  mean=0.458 ms  max=1.638 ms  stddev=0.324 ms  (n=60 units)
+throughput: 2804.73 bundles/sec  5609.5 units/sec-equivalent  201.9 kB/s
+bundle=28 n=2 bytes=72 send_time_ms=0.232
+SENT bundle=29 n=2 bytes=72 send_time_ms=0.212
+SENT bundle=30 n=2 bytes=72 send_time_ms=0.201
+SUMMARY bundles_sent=30 n_per_bundle=2 unit_size=36 bundle_len=72 mean_send_ms=0.391

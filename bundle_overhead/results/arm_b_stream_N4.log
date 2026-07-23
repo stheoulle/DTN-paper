@@ -1,0 +1,44 @@
+[bundle_receiver] listening on addr 21  (timeout=3000 ms per bundle)
+RECV_BUNDLE bundle_seq=1 n=4 bytes=144
+RECV_BUNDLE bundle_seq=2 n=4 bytes=144
+RECV_BUNDLE bundle_seq=3 n=4 bytes=144
+RECV_BUNDLE bundle_seq=4 n=4 bytes=144
+RECV_BUNDLE bundle_seq=5 n=4 bytes=144
+RECV_BUNDLE bundle_seq=6 n=4 bytes=144
+RECV_BUNDLE bundle_seq=7 n=4 bytes=144
+RECV_BUNDLE bundle_seq=8 n=4 bytes=144
+RECV_BUNDLE bundle_seq=9 n=4 bytes=144
+RECV_BUNDLE bundle_seq=10 n=4 bytes=144
+RECV_BUNDLE bundle_seq=11 n=4 bytes=144
+RECV_BUNDLE bundle_seq=12 n=4 bytes=144
+RECV_BUNDLE bundle_seq=13 n=4 bytes=144
+RECV_BUNDLE bundle_seq=14 n=4 bytes=144
+RECV_BUNDLE bundle_seq=15 n=4 bytes=144
+RECV_BUNDLE bundle_seq=16 n=4 bytes=144
+RECV_BUNDLE bundle_seq=17 n=4 bytes=144
+RECV_BUNDLE bundle_seq=18 n=4 bytes=144
+RECV_BUNDLE bundle_seq=19 n=4 bytes=144
+RECV_BUNDLE bundle_seq=20 n=4 bytes=144
+RECV_BUNDLE bundle_seq=21 n=4 bytes=144
+RECV_BUNDLE bundle_seq=22 n=4 bytes=144
+RECV_BUNDLE bundle_seq=23 n=4 bytes=144
+RECV_BUNDLE bundle_seq=24 n=4 bytes=144
+RECV_BUNDLE bundle_seq=25 n=4 bytes=144
+RECV_BUNDLE bundle_seq=26 n=4 bytes=144
+RECV_BUNDLE bundle_seq=27 n=4 bytes=144
+RECV_BUNDLE bundle_seq=28 n=4 bytes=144
+RECV_BUNDLE bundle_seq=29 n=4 bytes=144
+RECV_BUNDLE bundle_seq=30 n=4 bytes=144
+RECV_BUNDLE bundle_seq=31 n=4 bytes=144
+RECV_BUNDLE bundle_seq=32 n=4 bytes=144
+cspcl_recv_bundle: Operation timed out -- stopping
+
+--- bundle measurement summary ---
+bundles received: 32
+unit latency: min=0.235 ms  mean=0.342 ms  max=0.909 ms  stddev=0.150 ms  (n=128 units)
+throughput: 10.63 bundles/sec  42.5 units/sec-equivalent  1.5 kB/s
+es=144 send_time_ms=0.243
+SENT bundle=31 n=4 bytes=144 send_time_ms=0.257
+SENT bundle=32 n=4 bytes=144 send_time_ms=0.247
+cspcl_send_bundle failed at bundle=33: CSP connection failed
+SUMMARY bundles_sent=32 n_per_bundle=4 unit_size=36 bundle_len=144 mean_send_ms=0.300
