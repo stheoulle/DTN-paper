@@ -88,6 +88,12 @@ int main(int argc, char **argv)
     fprintf(stderr, "[bundle_receiver] listening on addr %u  (timeout=%u ms per bundle)\n",
             local_addr, timeout_ms);
 
+    /* Uses cspcl/fix/connection-handling: cspcl_recv_bundle() itself now
+     * keeps accepted connections open across calls (CSPCL_RX_CONN_TABLE_SIZE
+     * live inbound connections, round-robin polled, LRU-evicted) since
+     * senders pool and reuse their outbound connection instead of
+     * reconnecting per bundle. No manual accept-once/reuse workaround is
+     * needed here anymore -- see bundle_overhead/results/result.md. */
     int  bundles = 0;
     long total_bytes = 0;
     struct timespec t_first, t_now;

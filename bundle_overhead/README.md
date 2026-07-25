@@ -47,11 +47,23 @@ measured data:
 
 1. **No full BP7 encoding.** This benchmark calls `cspcl_send_bundle()`
    directly, bypassing a full BPA, so no real BP7 primary block is put on the
-   wire. `overhead_table.py`'s `BP7_MIN_OVERHEAD_BYTES` is an analytic
-   approximation of a minimal BP7 bundle (short IPN EIDs, no extension
-   blocks, no CRC) documented in that script — replace it with a measured
-   value from an actual Hardy/Unibo-BP/uD3TN bundle if a tighter number is
-   needed.
+   wire. `overhead_table.py`'s `bp7_bundle_overhead_bytes()` is not a guessed
+   constant — it derives the exact CBOR byte count of a minimal BP7 bundle
+   field-by-field from RFC 9171 (indefinite-length array framing in §4.1,
+   8-field primary block in §4.3.1, ipn/dtn:none EID encoding in §4.2.5,
+   5-field payload block in §4.3.2, CBOR unsigned-integer/array/byte-string
+   length-prefix sizing from RFC 8949 §3.1), using this benchmark's actual
+   addressing (`ipn` node numbers 20/21, service 10 = `CSPCL_PORT_BP`,
+   `dtn:none` report-to since no status reports are requested, CRC type 0).
+   It comes out to 55B total framing (42-43B primary+payload-header
+   overhead + 12-13B for the indefinite-array start/break bytes — see the
+   script's module docstring for the field-by-field breakdown), essentially
+   flat across the N sweep since only the payload-length CBOR prefix and
+   the creation-timestamp value are bundle-dependent. Still worth
+   cross-checking against a measured value from an actual
+   Hardy/Unibo-BP/uD3TN bundle if a full BPA encoding is ever wired in, in
+   case those implementations add extension blocks (e.g. previous-node,
+   hop-count, bundle-age) this derivation doesn't assume.
 2. **Arm A always uses N=1.** Raw CSP has no bundling concept; N only
    parameterizes Arm B.
 

@@ -24,10 +24,10 @@ RECEIVER="$SCRIPT_DIR/receiver"
 OUT_DIR="${1:-/tmp/dtn_measure_$(date +%Y%m%d_%H%M%S)}"
 PORT=4000
 REMOTE=10.0.0.2
-COUNT=20             # packets per run
+COUNT=10             # packets per run
 TIMEOUT=30          # seconds to wait for receiver before giving up
-SIZES=(64 256 1024 4096)
-
+#SIZES=(64 256 1024 4096)
+SIZES=(4096)
 if [[ $EUID -ne 0 ]]; then
     echo "error: must run as root (ip netns exec requires it)" >&2
     exit 1

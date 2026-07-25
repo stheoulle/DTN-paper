@@ -353,10 +353,12 @@ sudo ip netns exec alice_ns ./apps/sender 10.0.0.2 4000 100 1024 0
 ```
 
 Sender usage: `sender <remote_ip> [port=4000] [count=100] [size=256] [interval_ms=0]`
+
 - `size` — total datagram payload in bytes (minimum 28)
 - `interval_ms=0` — burst mode; set to e.g. `100` for one packet per 100 ms
 
 Receiver usage: `receiver [port=4000] [expected_count=0]`
+
 - `expected_count=0` — run forever; send SIGINT (Ctrl-C) at any time to print stats
 
 ### Store-and-forward disruption test

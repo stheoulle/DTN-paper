@@ -1,0 +1,261 @@
+[bundle_receiver] listening on addr 21  (timeout=5000 ms per bundle)
+[0;34mRDP 0x55b4d9cc0610: Received in S 0: syn 1, ack 0, eack 0, rst 0, seq_nr 10662, ack_nr     0, packet_len 29 (24)
+[0;0m[0;34mRDP 0x55b4d9cc0610: SYN-Received
+[0;0m[0;34mRDP 0x55b4d9cc0610: window size 4, conn timeout 1000, packet timeout 1000, delayed acks: 1, ack timeout 250, ack each 2 packet
+[0;0m[0;34mRDP 0x55b4d9cc0610: Send CMP S 2: syn 1, ack 1, eack 0, rst 0, seq_nr 38061, ack_nr 10662, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Received in S 2: syn 0, ack 1, eack 0, rst 0, seq_nr 10663, ack_nr 38061, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: NC: Connection OPEN
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944415, seq 38061, una 38062
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10663, ack_nr 38061, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38062, ack_nr 10663, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=1 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10664, ack_nr 38062, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944416, seq 38062, una 38063
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38063, ack_nr 10664, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=2 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10665, ack_nr 38063, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Send CMP S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38064, ack_nr 10665, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944417, seq 38063, una 38064
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38064, ack_nr 10665, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=3 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10666, ack_nr 38064, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944418, seq 38064, una 38065
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10666, ack_nr 38064, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38065, ack_nr 10666, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=4 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10667, ack_nr 38065, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944420, seq 38065, una 38066
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38066, ack_nr 10667, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=5 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10668, ack_nr 38066, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Send CMP S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38067, ack_nr 10668, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944421, seq 38066, una 38067
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38067, ack_nr 10668, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=6 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10669, ack_nr 38067, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944422, seq 38067, una 38068
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10669, ack_nr 38067, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10669, ack_nr 38067, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38068, ack_nr 10669, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=7 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10670, ack_nr 38068, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944423, seq 38068, una 38069
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38069, ack_nr 10670, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=8 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10671, ack_nr 38069, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Send CMP S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38070, ack_nr 10671, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944425, seq 38069, una 38070
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38070, ack_nr 10671, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=9 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10672, ack_nr 38070, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944426, seq 38070, una 38071
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10672, ack_nr 38070, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10672, ack_nr 38070, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38071, ack_nr 10672, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=10 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10673, ack_nr 38071, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944428, seq 38071, una 38072
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38072, ack_nr 10673, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=11 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10674, ack_nr 38072, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Send CMP S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38073, ack_nr 10674, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944429, seq 38072, una 38073
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38073, ack_nr 10674, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=12 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10675, ack_nr 38073, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944430, seq 38073, una 38074
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10675, ack_nr 38073, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10675, ack_nr 38073, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38074, ack_nr 10675, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=13 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10676, ack_nr 38074, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944431, seq 38074, una 38075
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38075, ack_nr 10676, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=14 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10677, ack_nr 38075, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Send CMP S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38076, ack_nr 10677, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944432, seq 38075, una 38076
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38076, ack_nr 10677, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=15 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10678, ack_nr 38076, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944433, seq 38076, una 38077
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10678, ack_nr 38076, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10678, ack_nr 38076, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38077, ack_nr 10678, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=16 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10679, ack_nr 38077, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944435, seq 38077, una 38078
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38078, ack_nr 10679, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=17 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10680, ack_nr 38078, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Send CMP S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38079, ack_nr 10680, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944436, seq 38078, una 38079
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38079, ack_nr 10680, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=18 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10681, ack_nr 38079, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944437, seq 38079, una 38080
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10681, ack_nr 38079, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10681, ack_nr 38079, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38080, ack_nr 10681, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=19 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10682, ack_nr 38080, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944438, seq 38080, una 38081
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38081, ack_nr 10682, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=20 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10683, ack_nr 38081, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Send CMP S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38082, ack_nr 10683, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944439, seq 38081, una 38082
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38082, ack_nr 10683, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=21 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10684, ack_nr 38082, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944439, seq 38082, una 38083
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10684, ack_nr 38082, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10684, ack_nr 38082, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38083, ack_nr 10684, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=22 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10685, ack_nr 38083, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944441, seq 38083, una 38084
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38084, ack_nr 10685, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=23 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10686, ack_nr 38084, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Send CMP S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38085, ack_nr 10686, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944442, seq 38084, una 38085
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38085, ack_nr 10686, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=24 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10687, ack_nr 38085, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944443, seq 38085, una 38086
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10687, ack_nr 38085, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10687, ack_nr 38085, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38086, ack_nr 10687, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=25 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10688, ack_nr 38086, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944444, seq 38086, una 38087
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38087, ack_nr 10688, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=26 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10689, ack_nr 38087, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Send CMP S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38088, ack_nr 10689, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944446, seq 38087, una 38088
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38088, ack_nr 10689, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=27 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10690, ack_nr 38088, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944447, seq 38088, una 38089
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10690, ack_nr 38088, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10690, ack_nr 38088, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38089, ack_nr 10690, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=28 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10691, ack_nr 38089, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944448, seq 38089, una 38090
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38090, ack_nr 10691, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=29 n=2 bytes=72
+[0;34mRDP 0x55b4d9cc0610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10692, ack_nr 38090, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55b4d9cc0610: Send CMP S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38091, ack_nr 10692, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55b4d9cc0610: TX Element Free, time 23944449, seq 38090, una 38091
+[0;0m[0;34mRDP 0x55b4d9cc0610: Wake Tx task (check timeouts)
+[0;0m[0;34mcsp_sfp_recv_fp: 20:55, fragment 72/72
+[0;0m[0;34mRDP 0x55b4d9cc0610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38091, ack_nr 10692, packet_len 6 (1)
+[0;0mRECV_BUNDLE bundle_seq=30 n=2 bytes=72
+
+--- bundle measurement summary ---
+bundles received: 30 / 30  (100.0%)
+unit latency: min=0.125 ms  mean=1.002 ms  max=1.487 ms  stddev=0.207 ms  (n=60 units)
+throughput: 858.64 bundles/sec  1717.3 units/sec-equivalent  61.8 kB/s
+2
+[0;0m[0;34mRDP 0x55cc11f65610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10690, ack_nr 38088, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55cc11f65610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38089, ack_nr 10690, packet_len 6 (1)
+[0;0m[0;34mRDP 0x55cc11f65610: TX Element Free, time 23944447, seq 10690, una 10691
+[0;0m[0;34mRDP 0x55cc11f65610: Wake Tx task (check timeouts)
+[0;0mSENT bundle=28 n=2 bytes=72 send_time_ms=1.301
+[0;34mcsp_sfp_send_own_memcpy: 21:10, sending at 0x55cc11f737b0 size 72
+[0;0m[0;34mRDP 0x55cc11f65610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10691, ack_nr 38089, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55cc11f65610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38090, ack_nr 10691, packet_len 6 (1)
+[0;0m[0;34mRDP 0x55cc11f65610: TX Element Free, time 23944448, seq 10691, una 10692
+[0;0m[0;34mRDP 0x55cc11f65610: Wake Tx task (check timeouts)
+[0;0mSENT bundle=29 n=2 bytes=72 send_time_ms=1.231
+[0;34mcsp_sfp_send_own_memcpy: 21:10, sending at 0x55cc11f737b0 size 72
+[0;0m[0;34mRDP 0x55cc11f65610: Sending  in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10692, ack_nr 38090, packet_len 85 (80)
+[0;0m[0;34mRDP 0x55cc11f65610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38091, ack_nr 10692, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55cc11f65610: TX Element Free, time 23944450, seq 10692, una 10693
+[0;0m[0;34mRDP 0x55cc11f65610: Wake Tx task (check timeouts)
+[0;0m[0;34mRDP 0x55cc11f65610: Received in S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 38091, ack_nr 10692, packet_len 6 (1)
+[0;0m[0;34mRDP 0x55cc11f65610: Send CMP S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10693, ack_nr 38091, packet_len 5 (0)
+[0;0m[0;34mRDP 0x55cc11f65610: Send CMP S 3: syn 0, ack 1, eack 0, rst 0, seq_nr 10693, ack_nr 38091, packet_len 5 (0)
+[0;0mSENT bundle=30 n=2 bytes=72 send_time_ms=1.184
+[0;34mSUMMARY bundles_sent=30 n_per_bundle=2 unit_size=36 bundle_len=72 mean_send_ms=1.166
+RDP 0x55cc11f65610: Wake Tx task (check timeouts)
+[0;0m
