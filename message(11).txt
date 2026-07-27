@@ -1,0 +1,157 @@
+# WiSEE 2026 — Reviewer Comments vs. Changes Made
+
+Paper: "CSPCL: A Stepwise, Non-Disruptive Transition to Delay-Tolerant Networking for
+CubeSat Operators" — Review 1: Weak accept (4). Review 2: Borderline (3).
+
+Edited draft: `paper.tex` (scratchpad copy). Two categories below: (A) addressed by
+editorial/text changes already made, (B) requires new empirical work — handed to teammate,
+not attempted here.
+
+---
+
+## A. Addressed by text changes already made
+
+### 1. R1 — "outline a clearer roadmap toward a formal CSPCL specification, including which
+behaviors would need standardization"
+
+**Old:**
+> While other CLAs such as TCPCL are backed by an RFC to specify them so that any BP agent implementation exhibits the same behaviour, our CSPCL proposal consists of a common library in order to unify behaviour. This approach aims to demonstrate interoperability between different BPAs while operating CSPCL, with a formal RFC potentially following in the future to standardize the protocol.
+
+**New:**
+> While other CLAs such as TCPCL are backed by an RFC, CSPCL follows an implementation-first path instead, as TCPCL itself originally did before RFC~7242. We integrate a single shared behavioural core into three structurally different BPAs: Unibo-BP's process-isolated IPC daemon, µD3TN's in-process event loop, and Hardy's asynchronous FFI binding, described in the following subsections, showing that one implementation can be adapted to divergent BPA architectures without divergent CLA semantics. This body of implementation experience is what a future RFC would need to formalize: the wire-level framing over CSP/SFP, the connection lifecycle backing a contact (opened for the duration of the contact, LRU-pooled, optionally age-invalidated), and the application-level delivery acknowledgement described below. We see codifying these three behaviours, already exercised consistently across three independent BPAs, as the concrete next step toward a CSPCL specification suitable for multi-vendor interoperability.
+
+### 2a. R2 — "the connection-pool mechanism ... is never measured or tested under any
+load/failure scenario in the experiments" (delivery-ack rationale + pool validation)
+
+**Old:** *(no equivalent paragraph existed — the paper only described RDP-level ACKs, never
+the application-level delivery ack that the shipped code actually relies on)*
+
+**New (inserted after the RDP/SFP paragraph):**
+> RDP's acknowledgements only confirm that individual CSP packets were enqueued for transmission; libcsp does not expose whether every fragment of a bundle was actually acknowledged as received, only its best-effort attempt to transmit them. To close this gap, CSPCL confirms end-to-end delivery of each bundle itself, at the application level, using nothing beyond stock CSP connection-oriented sockets. After all SFP fragments of a bundle have been transmitted, the sender blocks on a single one-byte acknowledgement, sent by the receiver on the same connection only once it has reassembled the complete bundle, bounded by a per-hop timeout. If no acknowledgement arrives, CSPCL invalidates the pooled connection, retries once, and otherwise reports the failure up to the BPA so it can react (e.g., tear down the link) instead of silently discarding a bundle it believes was sent.
+--> Add paragraph to explain this was tested during the benchmark and it is a success.
+
+**Old (end of pool paragraph):**
+> ...enabling graceful adaptation to network topology changes while minimizing setup overhead for repeated communications.
+
+**New (same paragraph, sentence appended):**
+> ...enabling graceful adaptation to network topology changes while minimizing setup overhead for repeated communications. We validate this pooling logic with integration tests exercising LRU eviction and cache hit/miss accounting under repeated sends, and with a two-node test that kills the receiver mid-session to confirm the timeout and recovery behaviour described above: the very next send correctly reports a timeout within the configured bound, and the link recovers once the peer returns.
+
+*(These are correctness tests, not load/throughput benchmarks — R2's ask for quantitative pool
+behavior under contention is still open, see Part B item 2.)*
+
+### 2b. R2 — "revise Section III-A to clearly separate CSPCL's actual contribution from
+properties inherent to the CAN bus standard (CRC, arbitration, etc.)"
+
+**Old:**
+> The main feature of CSP is to work on top of a Controller Area Network (CAN) bus. CAN is a robust, low-bandwidth serial bus protocol widely adopted in CubeSat avionics as the primary inter-component communication medium, enabling reliable data exchange between attitude determination and control systems (ADCS), power management units (PMU), and scientific payloads. CSPCL integrates CAN as a physical transport layer via the SocketCAN interface, allowing CSP packets to be framed and transmitted over CAN, providing automatic error detection via CRC checksums, collision avoidance through priority-based arbitration, and guaranteed message delivery—critical properties in radiation-prone space environments where transient faults are common. CAN's low power consumption and minimal wiring overhead (two wires vs. dedicated point-to-point links) make it ideal for CubeSats operating under severe mass, volume, and electrical power constraints. By layering CSP/Bundle Protocol over CAN, CSPCL bridges satellite communications standards with the proven, space-flight-qualified CAN hardware ecosystem, enabling CubeSats to employ standardized DTN bundles for store-and-forward messaging while leveraging battle-tested onboard bus infrastructure.
+
+**New:**
+> The main feature of CSP is to work on top of a Controller Area Network (CAN) bus. CAN is a robust, low-bandwidth serial bus protocol widely adopted in CubeSat avionics as the primary inter-component communication medium, enabling reliable data exchange between attitude determination and control systems (ADCS), power management units (PMU), and scientific payloads. As part of the CAN standard itself, the bus already provides automatic error detection via CRC checksums, collision avoidance through priority-based arbitration, and low-power, minimal-wiring operation (two wires vs. dedicated point-to-point links). Those properties are inherited from the bus, not contributed by CSPCL, but that make CAN an attractive transport for CubeSats operating under severe mass, volume, and electrical power constraints. CSPCL's own contribution at this layer is narrower: it integrates CAN as a physical transport for CSP via the SocketCAN interface, framing CSP (and, transitively, SFP-fragmented Bundle Protocol) packets onto CAN frames without requiring any change to the existing intra-satellite CAN bus or its attached subsystems. By layering CSP/Bundle Protocol over CAN in this way, CSPCL lets CubeSats adopt standardized DTN bundles for store-and-forward messaging while continuing to rely on the same proven, space-flight-qualified CAN hardware already deployed onboard.
+
+### 3. R2 — "Charon ... supports only µD3TN as BPA, lacks a local packet queue ... does not
+support CSP's own routing features ... clarify Charon's current scope and limitations more
+prominently ... as explicit boundaries of the contribution rather than only mentioning them
+in passing within the future-work discussion"
+
+**Old (CSP-mode paragraph, trailing sentence):**
+> This architecture enables peer-to-peer communication over CSP in a DTN topology. However, it does not support the routing features provided by CSP, as each peer only interacts with its local Charon instance.
+
+**New:**
+> This architecture enables peer-to-peer communication over CSP in a DTN topology; its routing-scope limitation is discussed in Section~\ref{sec:charon-limitations}.
+
+**Old (µD3TN-only + SPOF paragraph, previously buried in the future-work-adjacent text):**
+> The current version of Charon only supports µD3TN as the BPA, µD3TN provides a well documented and easy to integrate protocol to communicate with the BPA : AAP2 ~\cite{10795108}. AAP2 is a Protocol Buffers (protobuf)-based API for interacting with Bundle Protocol Agents (BPAs). It serves as the primary interface for sending bundles via µD3TN.
+>
+> As a result, Charon is directly compatible with any BPA that supports AAP2 and transitively compatible with all BPAs that µD3TN can interoperate with.
+>
+> In the future, we are planning to add support for other Bundle Protocol Agents (BPAs), such as Unibo-BP, ION-DTN or Hardy. Currently, Charon lacks a local packet queue, as it relies entirely on the front-end BPA to handle outgoing packets. This dependency creates a single point of failure: if the BPA goes down, all packets are lost. To address this, integrating a local buffer would mitigate the risk and ensure packets are retained until the BPA recovers.
+
+**New (condensed to a single paragraph; SPOF/queue and BPA-extension mentions relocated):**
+> Charon's current AAP2-based integration is with µD3TN, which provides a well documented and easy to integrate protocol to communicate with the BPA: AAP2~\cite{10795108}, a Protocol Buffers (protobuf)-based API that serves as µD3TN's primary interface for sending bundles. As a result, Charon is directly compatible with any BPA that supports AAP2, and transitively compatible with all BPAs that µD3TN can interoperate with.
+
+**New (added subsection, right after the CAN-tunneling paragraph):**
+> \subsection{Limitations and Scope}\label{sec:charon-limitations}
+>
+> We summarize Charon's current limitations explicitly, as boundaries of the contribution rather than incidental gaps:
+> - **Single BPA support.** Charon currently integrates with µD3TN only, through its AAP2 interface; it is transitively compatible with any BPA that µD3TN itself interoperates with, but has no direct integration with Unibo-BP or Hardy.
+> - **No local packet queue.** Charon holds no buffer of its own and depends entirely on the front-end BPA to accept outgoing packets; if the BPA is unavailable, packets in flight are lost rather than queued. A local buffer would mitigate this single point of failure and is left as future work.
+> - **No CSP routing in CSP mode.** Because each peer only interacts with its own local Charon instance (Figure~\ref{fig:csp_charon}), CSP-mode tunneling does not preserve CSP's native routing features --- it provides point-to-point association between two named peers, not general CSP routing across a DTN topology.
+> - **CAN frame reassembly is unresolved.** As described above, CAN-mode tunneling can currently split the CAN frames of a single CSP packet across bundle boundaries, risking reassembly failure at the receiving peer if those bundles are delivered out of order. Reassembling CSP packets from CAN frames before encapsulation --- so that a bundle always carries a complete packet --- is required to make CAN tunneling genuinely disruption tolerant, and is in progress at the time of writing.
+
+### 4. R1 — "a short discussion of security considerations would round out the practical deployment picture"
+
+**Old:** *(no equivalent section existed)*
+
+**New (added subsection):**
+> \subsection{Security Considerations}
+>
+> Neither CSP nor the SocketCAN/CAN-bus transport CSPCL relies on provide built-in authentication or confidentiality; CSPCL and Charon inherit this open trust model, which mirrors the physical isolation typically assumed for an intra-satellite bus. Bundle Protocol Security (BPSec, RFC~9172) can be layered above CSPCL at the BPA to provide bundle-level integrity and confidentiality end-to-end, independent of the convergence layer, but neither CSPCL nor Charon currently enforce or configure it. Charon's ground-facing IP and CSP tunnels are a comparatively more exposed surface than the intra-satellite CAN link, since they may traverse links outside the physically isolated bus; hardening these tunnels (e.g., authenticating CLA sessions, enabling BPSec on tunneled traffic) is left as future work.
+
+*(Action item for you: BPSec is referenced as plain text "RFC~9172", not `\cite{}` — add a
+bib entry if you want it as a numbered citation.)*
+
+### 5. Minor cleanup (not tied to a specific reviewer comment)
+
+**Old:**
+> The solution to this problem is to reassemble CSP packets from the CAN frames intercepted by Charon, ensuring that the delivery order is preserved even in a disrupted network.
+>
+> 1
+>
+> \section{future work}
+>
+> The target 12U platform is linux-based, although other CubeSats from the CSUM are micro-controller-based. A-SABR is currently being ported for micro-controller support, but not the CSPCL stack. Future work includes a full experiment on microcontroller, with a compatible Bundle Protocol Agent. Moreover, tunneling CAN frames over the bundle protocol is not satisfactory and the tunneling of CSP packets is being developed at the time writing.
+
+**New:**
+> The solution to this problem is to reassemble CSP packets from the CAN frames intercepted by Charon, ensuring that the delivery order is preserved even in a disrupted network.
+>
+> \subsection{Limitations and Scope}\label{sec:charon-limitations}
+> [... see item 3 above ...]
+>
+> \subsection{Security Considerations}
+> [... see item 4 above ...]
+>
+> \section{Future Work}
+>
+> The target 12U platform is linux-based, although other CubeSats from the CSUM are micro-controller-based. A-SABR is currently being ported for micro-controller support, but not the CSPCL stack. Future work includes a full experiment on microcontroller, with a compatible Bundle Protocol Agent, and extending Charon's BPA support beyond µD3TN (Unibo-BP, ION-DTN, Hardy).
+
+(Stray orphaned `1` character removed; `future work` → `Future Work` for IEEE title casing;
+the CAN-reassembly-in-progress and BPA-extension mentions moved into the new subsections
+above rather than staying in this closing paragraph.)
+
+---
+
+## B. Requires new empirical work
+
+These are the items flagged as genuine gaps, not answerable by rewording — per your
+instruction that testing is being handled separately.
+
+1. **Quantitative performance numbers** (R1 + R2, both reviews' top ask): bundle delivery
+   latency, throughput vs. the modeled 50/100 kbps contact rates, and CPU/resource usage
+   across the 4-hop chain. No existing benchmark harness in the repo — `test_ack_demo.c` /
+   `test_ack_timeout_demo.c` only timestamp logs for demo readability.
+
+2. **Connection-pool behavior under real concurrent load/contention** (R2). Existing tests
+   (`test_cspcl_pool_integration.c`) prove LRU/cache-accounting *correctness*, not behavior
+   under contention or load — that measurement still needs to be produced.
+
+3. **A true BP-layer disruption / store-and-forward test** (R2 — explicitly called "the
+   single most important missing test"): drop a link mid-transfer across a contact-plan gap
+   and confirm recovery. What exists today (`test_two_node_ack.c`'s "node goes down" case) is
+   CLA-level link-failure detection/recovery, not a BP-layer custody/storage test — useful
+   supporting evidence, not a substitute.
+
+4. **Frequency/severity estimate for the CAN fragment-reassembly ordering issue** (R1):
+   how often it manifests and how severe the impact is — analytical or empirical.
+
+5. **Validation beyond the current 4-node cross-BPA topology** (R1: "does not fully address
+   how CSPCL scales beyond the four-node topology or how it behaves under disrupted or
+   scheduled contacts"), if feasible within the revision timeline.
+
+---
+
+## Comments not requiring a paper change
+- R1's "the physical hardware tests are described only briefly" and "uses virtual CAN for
+  most of the validation" — same root cause as items B.1/B.3/B.5 above (more experimental
+  detail = more data), no separate action.
+- R2's Strong Aspects and R1's Strong Aspects sections require no response — no action items
+  there.
