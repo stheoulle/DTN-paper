@@ -178,6 +178,22 @@ gcc -O2 -Wall -Wextra \
   $LIBCSP_BUILD/libcsp.a \
   -lzmq -lpthread -lm \
   -lsocketcan
+
+  #contact range version
+gcc -O2 -Wall -Wextra \
+  -DCSPCL_CSP_TIMEOUT_MS=15000 -DCSPCL_ACK_TIMEOUT_MS=15000 -DCSPCL_SFP_TIMEOUT_MS=15000 \
+  src/cspcl_daemon.c ../src/cspcl.c \
+  -o build/unibo-bp-cspcl \
+  -I../src \
+  -I$DTN_ROOT/unibo-dtn/unibo-bp/include \
+  -I$DTN_ROOT/libcsp/include \
+  -I$DTN_ROOT/libcsp/build/include \
+  -L$UNIBO_BP_LIB \
+  -Wl,-rpath,$UNIBO_BP_LIB \
+  -lunibo-bp-api \
+  $LIBCSP_BUILD/libcsp.a \
+  -lzmq -lpthread -lm \
+  -lsocketcan
   
 
 # args: <csp_local_addr> <csp_port> <iface> <local_port> <unibo_workdir>
@@ -194,15 +210,33 @@ cd $DTN_ROOT/hardy
 CSP_REPO_DIR=$DTN_ROOT/libcsp CSP_BUILD_DIR=$DTN_ROOT/libcsp/build \
   cargo build --release --features cspcl
 
+# Contact range version
+CFLAGS="-DCSPCL_CSP_TIMEOUT_MS=15000 -DCSPCL_ACK_TIMEOUT_MS=15000 -DCSPCL_SFP_TIMEOUT_MS=15000" \
+CSP_REPO_DIR=$DTN_ROOT/libcsp CSP_BUILD_DIR=$DTN_ROOT/libcsp/build \
+  cargo build --release --features cspcl
+
+ #----
+
+
 cd ..
 
 # Run
 $DTN_ROOT/hardy/target/release/hardy-bpa-server --config $DTN_ROOT/demo/hardy.yaml
+
+
 ```
 
 ### T6 — Node3: bob uD3TN with CSPCL (BDM mode)
 
 ```bash
+
+#Contact range version
+
+cd ud3tn
+CPPFLAGS="-DCSPCL_CSP_TIMEOUT_MS=15000 -DCSPCL_ACK_TIMEOUT_MS=15000 -DCSPCL_SFP_TIMEOUT_MS=15000" make posix
+
+#----
+
 cd ud3tn
 ./build/posix/ud3tn \
   -e dtn://bob.dtn/ \
