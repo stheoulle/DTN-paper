@@ -64,6 +64,59 @@ folder makes those numbers real and measures against them.
   isolated; see the script's header comment. **Root required.** Env
   overrides: `CAN_KBPS`, `TCP_KBPS`, `SIZES="1024 4096"`, `COUNT`,
   `PACE_MARGIN`.
+- **`measure_resource_usage.sh [output_dir]`** — CPU% and RSS of the six
+  persistent relay/BPA processes in the real chain (alice's uD3TN, bob's
+  uD3TN, `unibo-bp-cspcl`, `hardy-bpa-server`, and the two `charon`
+  instances), sampled every 0.5s (`ps -o %cpu,rss -p <pid>`) while
+  `apps/sender` bursts each payload size through the chain, same
+  send/receive pattern as `run_contact_rate_measure.sh`. PIDs are resolved
+  once via `pgrep -f` on a substring unique to each process's launch
+  command (verified unique at resolve time — aborts loudly if a pattern
+  matches zero or more than one process). Reports mean/peak %cpu and peak
+  RSS per process per payload size to
+  `<output_dir>/resource_usage_report.md`. `ps %cpu` is a kernel/procps-
+  smoothed decaying average, not an instantaneous per-sample reading —
+  see the script's header comment for why that tradeoff was chosen over
+  `/proc/<pid>/stat` deltas, and for the single-core-relative (not
+  `nproc`-normalized) %cpu convention. **Root required.** Env overrides:
+  `CAN_KBPS`, `TCP_KBPS`, `SIZES="64 256 1024 4096"`, `COUNT`,
+  `SAMPLE_INTERVAL_S`.
+- **`measure_pool_hitrate.sh [output_dir]`** — connection-pool hit-rate
+  metrics for `unibo-bp-cspcl`'s outbound pool (node1's link to hardy),
+  under the same paced 1024B/4096B scenario `test_paced_delivery.sh`
+  uses. Depends on a SIGUSR1 handler added to
+  `cspcl/unibo-integration/src/cspcl_daemon.c` (`daemon_stats_signal_handler`
+  / `dump_pool_stats`) that calls the real `cspcl_conn_pool_get_stats()`
+  accessor and logs one `conn_pool stats (...): hits=.. misses=..
+  evictions=.. invalidations=.. connect_failures=.. hit_rate=..` line —
+  this script finds the running `unibo-bp-cspcl` PID via `pgrep`, signals
+  it before and after the send, and diffs the two snapshots read back
+  from its log file (the daemon's pool is long-lived and shared across
+  every run against it, so an un-diffed read would include earlier
+  runs' traffic). **Root required.** Needs `unibo-bp-cspcl` rebuilt
+  after the SIGUSR1 handler was added (see DEMO.md T4) and its stderr
+  redirected to a file (`UNIBO_LOG`, default `/tmp/unibo-cspcl.log`).
+  Env overrides: `CAN_KBPS`, `TCP_KBPS`, `SIZES="1024 4096"`, `COUNT`,
+  `PACE_MARGIN`, `UNIBO_LOG`, `UNIBO_PID_PATTERN`. **Not yet run
+  end-to-end**: written and rebuilt in a sandboxed session with no
+  root/sudo, so it could not actually be exercised against the real
+  chain — see `pool_hitrate_draft.md` for what was and wasn't validated.
+- **`pool_bench.c` / `pool_bench_recv.c`** — a from-scratch, root-free
+  fallback attempt at a live (non-unit-test) pool benchmark, written when
+  `measure_pool_hitrate.sh` above couldn't be run for lack of root. Both
+  compile and link cleanly against `cspcl/src/cspcl.c` and exercise the
+  real `cspcl_send_bundle()` / connection-pool code — first over CSP's
+  self-addressed loopback interface, then (after that proved unreliable
+  in this environment, see `pool_bench.c`'s header) over CSPCL's
+  `zmqhub` interface between two real processes bridged by
+  `libcsp/examples/zmqproxy.c`. The zmqhub attempt also did not reach a
+  trustworthy result: `csp_connect()` between the two processes fell
+  into a live RDP retransmission loop that persisted even with
+  `CSPCL_CSP_TIMEOUT_MS`/`CSPCL_ACK_TIMEOUT_MS`/`CSPCL_SFP_TIMEOUT_MS`
+  raised to 15000ms, and the root cause wasn't isolated. Kept as a
+  starting point for whoever picks this up next (either with root, to
+  just run `measure_pool_hitrate.sh` instead, or to debug the
+  RDP/zmqhub issue directly) — not a validated source of numbers as-is.
 
 ## Usage
 
