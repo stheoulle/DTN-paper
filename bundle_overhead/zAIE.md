@@ -1,0 +1,8 @@
+ No — in this benchmark, the "bundle" never passes through Hardy, Unibo-BP, or uD3TN at all. bundle_sender/bundle_receiver call cspcl_send_bundle()/cspcl_recv_bundle() directly from the CSPCL library, bypassing any actual Bundle Protocol Agent entirely. There's no BPA process running in this test — no bundle storage, no routing/contact-plan logic, no BP7 encoding/decoding pipeline that a real BPA would perform.
+
+      What actually happens: the benchmark constructs a synthetic buffer (N concatenated fixed-size units, each just a timestamp/sequence header plus padding) and hands that buffer straight to CSPCL's cspcl_send_bundle(), which is the same function a BPA would call to hand off an already-encoded bundle for transmission. So the test exercises the real CSPCL convergence-layer mechanics (SFP fragmentation, RDP connection-pool lookup/eviction/invalidation) genuinely, but the "bundle" content itself is not a real BP7-encoded bundle produced by any BPA's bundle processor — it's a stand-in buffer.
+
+      This is a documented simplification (noted in the bundle_overhead/README.md and in code comments): the actual BP7 primary-block overhead that a real BPA would add is not present on the wire in this test at all. It's only approximated analytically as a constant (BP7_MIN_OVERHEAD_BYTES = 48 bytes) in overhead_table.py, explicitly flagged there as an approximation that should be replaced with a measured value from a real Hardy/Unibo-BP/uD3TN bundle if a tighter number is needed for the paper.
+
+
+I do also need to benchmark the experiment in the paper, meaning I need to go through the 4 BPA.

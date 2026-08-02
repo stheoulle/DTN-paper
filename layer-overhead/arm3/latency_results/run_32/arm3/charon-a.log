@@ -1,0 +1,18 @@
+16:17:21 [32mINFO [0m [90msrc/config.c:90:[0m using IP mode with 10.1.0.1 and MTU = 1500
+16:17:21 [32mINFO [0m [90msrc/aap2_client.c:136:[0m Connecting to /tmp/layer-node-a.aap2.socket
+16:17:21 [32mINFO [0m [90msrc/aap2_client.c:136:[0m Connecting to /tmp/layer-node-a.aap2.socket
+16:17:21 [32mINFO [0m [90msrc/tun.c:17:[0m Setting up route: ip addr add 10.1.0.1/30 dev layertun0
+16:17:21 [32mINFO [0m [90msrc/tun.c:20:[0m Setting MTU: ip link set layertun0 mtu 1500 up
+16:17:21 [32mINFO [0m [90msrc/tunnel.c:98:[0m Running tunnel
+16:17:22 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+16:17:22 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+16:17:22 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+16:17:22 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+16:17:23 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+16:17:23 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+16:17:23 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+16:17:23 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+16:17:23 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+16:17:23 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+16:17:23 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+16:17:23 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success

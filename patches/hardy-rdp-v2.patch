@@ -1,0 +1,126 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index e29a0eca..6c35d031 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -45,8 +45,8 @@ members = [
+ sqlx-sqlite = { path = "patches/sqlx-sqlite" }
+ # Removes RUSTSEC-2023-0071 (rsa Marvin Attack) — mysql feature is never enabled.
+ sqlx-mysql = { path = "patches/sqlx-mysql" }
+-cspcl = { path = "../cspcl-pool-management/rust-bindings/cspcl" }
+-cspcl-sys = { path = "../cspcl-pool-management/rust-bindings/cspcl-sys" }
++cspcl = { path = "../cspcl/rust-bindings/cspcl" }
++cspcl-sys = { path = "../cspcl/rust-bindings/cspcl-sys" }
+ 
+ [profile.release]
+ #lto = true
+diff --git a/cspcl/Cargo.toml b/cspcl/Cargo.toml
+index f438f8a1..9904fbca 100644
+--- a/cspcl/Cargo.toml
++++ b/cspcl/Cargo.toml
+@@ -21,5 +21,5 @@ tracing = { version = "0.1.44", default-features = false }
+ thiserror = "2.0.18"
+ tokio = { version = "1.51.1", features = ["time"] }
+ serde = { version = "1.0.228", features = ["derive"], optional = true }
+-cspcl-bindings = { path = "/home/hugo/code/cspcl-pool-management/rust-bindings/cspcl", package = "cspcl" }
++cspcl-bindings = { path = "../../cspcl/rust-bindings/cspcl", package = "cspcl" }
+ futures-util = "0.3.32"
+diff --git a/cspcl/src/lib.rs b/cspcl/src/lib.rs
+index 5ca4120c..0b6a80e8 100644
+--- a/cspcl/src/lib.rs
++++ b/cspcl/src/lib.rs
+@@ -5,7 +5,7 @@ mod transport;
+ pub use config::{Config, Interface, PeerConfig};
+ 
+ use hardy_async::async_trait;
+-use hardy_async::sync::spin::{Once, RwLock};
++use hardy_async::sync::spin::{Once, RwLock as SpinRwLock};
+ use hardy_bpa::Bytes;
+ use hardy_bpa::bpa::BpaRegistration;
+ use hardy_bpa::cla::{self, ClaAddress, ClaAddressType, CspAddress, ForwardBundleResult};
+@@ -29,7 +29,7 @@ pub enum Error {
+ 
+ pub struct Cla {
+     transport: transport::Transport,
+-    runtime: RwLock<runtime::Runtime>,
++    runtime: SpinRwLock<runtime::Runtime>,
+     sink: Once<Arc<dyn cla::Sink>>,
+ }
+ 
+@@ -40,10 +40,16 @@ impl Cla {
+             Interface::Can => cspcl_bindings::Interface::Can(config.interface_name.clone()),
+         };
+ 
+-        let cspcl = Arc::new(RwLock::new(
+-            cspcl_bindings::Cspcl::new(config.local_addr, config.port, interface)
+-                .map_err(|e: cspcl_bindings::Error| Error::CscplInit(e))?,
+-        ));
++        let cspcl = Arc::new(
++            cspcl_bindings::Cspcl::new(
++                cspcl_bindings::CspAddress {
++                    addr: config.local_addr,
++                    port: config.port,
++                },
++                interface,
++            )
++            .map_err(|e: cspcl_bindings::Error| Error::CscplInit(e))?,
++        );
+ 
+         let peers = config.peers.clone();
+         let mut csp_to_endpoint = HashMap::<CspAddress, NodeId>::new();
+@@ -56,7 +62,7 @@ impl Cla {
+         }
+ 
+         let transport = Transport::new(cspcl.clone());
+-        let runtime = RwLock::new(Runtime::new(csp_to_endpoint));
++        let runtime = SpinRwLock::new(Runtime::new(csp_to_endpoint));
+ 
+         Ok(Self {
+             transport,
+diff --git a/cspcl/src/transport.rs b/cspcl/src/transport.rs
+index 7b3da1b0..592d49aa 100644
+--- a/cspcl/src/transport.rs
++++ b/cspcl/src/transport.rs
+@@ -1,7 +1,6 @@
+ use std::sync::Arc;
+ 
+-use cspcl_bindings::{Error as CspclError, InboundStream};
+-use hardy_async::sync::spin::RwLock;
++use cspcl_bindings::{CspAddress, Error as CspclError, InboundStream};
+ use tracing::debug;
+ 
+ #[derive(Debug, thiserror::Error)]
+@@ -16,11 +15,11 @@ pub enum Error {
+ 
+ #[derive(Clone)]
+ pub struct Transport {
+-    cspcl: Arc<RwLock<cspcl_bindings::Cspcl>>,
++    cspcl: Arc<cspcl_bindings::Cspcl>,
+ }
+ 
+ impl Transport {
+-    pub fn new(cspcl: Arc<RwLock<cspcl_bindings::Cspcl>>) -> Self {
++    pub fn new(cspcl: Arc<cspcl_bindings::Cspcl>) -> Self {
+         Self { cspcl }
+     }
+ 
+@@ -32,17 +31,15 @@ impl Transport {
+     ) -> Result<(), Error> {
+         debug!("Try sending bundle to: {}:{}", addr, port);
+         self.cspcl
+-            .write()
+-            .send_bundle(&payload.into(), addr, port)
++            .send_bundle(&payload.into(), CspAddress { addr, port })
+             .map_err(Error::Send)
+     }
+ 
+     pub async fn inbound_stream(&self) -> InboundStream {
+-        self.cspcl.read().clone().inbound().await
++        self.cspcl.clone().inbound()
+     }
+ 
+     pub fn cleanup(&self) {
+-        let cspcl = self.cspcl.write();
+-        drop(cspcl);
++        self.cspcl.close_rx_socket();
+     }
+ }

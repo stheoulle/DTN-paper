@@ -1,0 +1,173 @@
+diff --git a/src/cspcl.c b/src/cspcl.c
+index c28675a..f8e7466 100644
+--- a/src/cspcl.c
++++ b/src/cspcl.c
+@@ -854,6 +854,48 @@ static void cspcl_rx_table_store(cspcl_t *cspcl, csp_conn_t *conn, uint8_t src_a
+   cspcl->rx_conns[slot].last_active = ++cspcl->rx_tick;
+ }
+ 
++/**
++ * @brief One round-robin pass over all live inbound connections
++ *
++ * Tries each live connection in turn, starting from the round-robin
++ * cursor, for up to per_conn_timeout_ms each. Drops any connection that
++ * errors out (not just times out), so the peer can reconnect.
++ *
++ * @return CSPCL_OK if a bundle was received, CSPCL_ERR_TIMEOUT if none of
++ *         the live connections had one ready within the timeout.
++ */
++static cspcl_error_t cspcl_rx_poll_once(cspcl_t *cspcl, uint8_t *bundle, size_t max_len,
++                                        size_t *len, uint8_t *src_addr, uint8_t *src_port,
++                                        uint32_t per_conn_timeout_ms)
++{
++  size_t start = cspcl->rx_tick % CSPCL_RX_CONN_TABLE_SIZE;
++  for (size_t n = 0; n < CSPCL_RX_CONN_TABLE_SIZE; n++) {
++    size_t i = (start + n) % CSPCL_RX_CONN_TABLE_SIZE;
++    cspcl_rx_conn_entry_t *e = &cspcl->rx_conns[i];
++    if (!e->used) {
++      continue;
++    }
++
++    *len = max_len;
++    cspcl_error_t recv_err = cspcl_recv_from_conn_timeout(
++        e->conn, bundle, len, src_addr, src_port, e->src_addr, e->src_port, per_conn_timeout_ms);
++
++    if (recv_err == CSPCL_OK) {
++      e->last_active = ++cspcl->rx_tick;
++      return CSPCL_OK;
++    }
++
++    if (recv_err != CSPCL_ERR_TIMEOUT) {
++      /* Connection is broken - drop it; the peer will reconnect */
++      csp_close(e->conn);
++      e->conn = NULL;
++      e->used = false;
++    }
++  }
++
++  return CSPCL_ERR_TIMEOUT;
++}
++
+ cspcl_error_t cspcl_recv_bundle(cspcl_t *cspcl, uint8_t *bundle, size_t *len, uint8_t *src_addr,
+                                 uint8_t *src_port, uint32_t timeout_ms)
+ {
+@@ -878,6 +920,63 @@ cspcl_error_t cspcl_recv_bundle(cspcl_t *cspcl, uint8_t *bundle, size_t *len, ui
+     }
+   }
+ 
++  /* Fast path: repeatedly poll already-live connections with non-blocking
++   * (0ms -- csp_read()'s documented "no hang poll/check" value) reads for
++   * a short budget, before ever blocking on accept(). Senders pool and
++   * reuse their outbound connection, so once one is established almost
++   * every bundle arrives on it rather than on a new connection.
++   *
++   * A single 0ms check is not enough: if the bundle is only microseconds
++   * away from arriving, one failed check falls all the way through to the
++   * ~100ms accept-poll wait below even though the data shows up moments
++   * later -- and since the peer is waiting for this call to return before
++   * it sends (or acks) the next bundle, that one slow round trip re-paces
++   * every subsequent call to land just *before* the next bundle arrives
++   * too, making the ~100ms fallback path self-sustaining instead of a
++   * one-off. Retrying 0ms checks for CSPCL_RX_FAST_POLL_BUDGET_MS breaks
++   * that resonance while still never blocking on a single read: a nonzero
++   * timeout passed to csp_read() on an RDP connection is silently clamped
++   * up to conn_timeout (multiple seconds), so sleeping between repeated
++   * 0ms checks is used instead of a real timeout. */
++  if (live > 0) {
++#ifndef FREERTOS
++    struct timespec fast_deadline;
++    clock_gettime(CLOCK_MONOTONIC, &fast_deadline);
++    fast_deadline.tv_nsec += (long) CSPCL_RX_FAST_POLL_BUDGET_MS * 1000000L;
++    while (fast_deadline.tv_nsec >= 1000000000L) {
++      fast_deadline.tv_sec++;
++      fast_deadline.tv_nsec -= 1000000000L;
++    }
++
++    for (;;) {
++      if (cspcl_rx_poll_once(cspcl, bundle, max_len, len, src_addr, src_port, 0) == CSPCL_OK) {
++        return CSPCL_OK;
++      }
++
++      struct timespec now;
++      clock_gettime(CLOCK_MONOTONIC, &now);
++      if (now.tv_sec > fast_deadline.tv_sec ||
++          (now.tv_sec == fast_deadline.tv_sec && now.tv_nsec >= fast_deadline.tv_nsec)) {
++        break;
++      }
++
++      struct timespec sleep_ts = {.tv_sec = 0, .tv_nsec = 1000000L}; /* 1ms */
++      nanosleep(&sleep_ts, NULL);
++    }
++#else
++    if (cspcl_rx_poll_once(cspcl, bundle, max_len, len, src_addr, src_port, 0) == CSPCL_OK) {
++      return CSPCL_OK;
++    }
++#endif
++  }
++
++  live = 0;
++  for (size_t i = 0; i < CSPCL_RX_CONN_TABLE_SIZE; i++) {
++    if (cspcl->rx_conns[i].used) {
++      live++;
++    }
++  }
++
+   /* Poll for new inbound connections. With live connections to service we
+    * only poll briefly; otherwise accept() gets the whole timeout. Senders
+    * pool and reuse their outbound connection, so most bundles arrive on an
+@@ -919,29 +1018,9 @@ cspcl_error_t cspcl_recv_bundle(cspcl_t *cspcl, uint8_t *bundle, size_t *len, ui
+     read_timeout = 50;
+   }
+ 
+-  size_t start = cspcl->rx_tick % CSPCL_RX_CONN_TABLE_SIZE;
+-  for (size_t n = 0; n < CSPCL_RX_CONN_TABLE_SIZE; n++) {
+-    size_t i = (start + n) % CSPCL_RX_CONN_TABLE_SIZE;
+-    cspcl_rx_conn_entry_t *e = &cspcl->rx_conns[i];
+-    if (!e->used) {
+-      continue;
+-    }
+-
+-    *len = max_len;
+-    cspcl_error_t recv_err = cspcl_recv_from_conn_timeout(
+-        e->conn, bundle, len, src_addr, src_port, e->src_addr, e->src_port, read_timeout);
+-
+-    if (recv_err == CSPCL_OK) {
+-      e->last_active = ++cspcl->rx_tick;
+-      return CSPCL_OK;
+-    }
+-
+-    if (recv_err != CSPCL_ERR_TIMEOUT) {
+-      /* Connection is broken - drop it; the peer will reconnect */
+-      csp_close(e->conn);
+-      e->conn = NULL;
+-      e->used = false;
+-    }
++  if (cspcl_rx_poll_once(cspcl, bundle, max_len, len, src_addr, src_port, read_timeout) ==
++      CSPCL_OK) {
++    return CSPCL_OK;
+   }
+ 
+   *len = 0;
+diff --git a/src/cspcl_config.h b/src/cspcl_config.h
+index 487b3ef..01c7c8a 100644
+--- a/src/cspcl_config.h
++++ b/src/cspcl_config.h
+@@ -130,6 +130,18 @@
+ #define CSPCL_RX_ACCEPT_POLL_MS 100
+ #endif
+ 
++/** Time budget (ms) for the initial fast-path poll of already-live
++ *  connections in cspcl_recv_bundle(), before falling back to the slower
++ *  accept-poll path above. Implemented as repeated 0ms (non-blocking)
++ *  reads with short sleeps in between, NOT a single read with this value
++ *  as its timeout: csp_read() on an RDP connection silently clamps any
++ *  nonzero timeout up to the connection's conn_timeout (multiple seconds
++ *  by default), so passing a short timeout directly would block far
++ *  longer than intended instead of giving up quickly. */
++#ifndef CSPCL_RX_FAST_POLL_BUDGET_MS
++#define CSPCL_RX_FAST_POLL_BUDGET_MS 20
++#endif
++
+ /* ========================================================================== */
+ /* Buffer Management (for integrations)                                       */
+ /* ========================================================================== */

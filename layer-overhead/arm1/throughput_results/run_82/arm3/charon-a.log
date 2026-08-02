@@ -1,0 +1,126 @@
+13:29:50 [32mINFO [0m [90msrc/config.c:90:[0m using IP mode with 10.1.0.1 and MTU = 1500
+13:29:50 [32mINFO [0m [90msrc/aap2_client.c:136:[0m Connecting to /tmp/layer-node-a.aap2.socket
+13:29:50 [32mINFO [0m [90msrc/aap2_client.c:136:[0m Connecting to /tmp/layer-node-a.aap2.socket
+13:29:50 [32mINFO [0m [90msrc/tun.c:17:[0m Setting up route: ip addr add 10.1.0.1/30 dev layertun0
+13:29:50 [32mINFO [0m [90msrc/tun.c:20:[0m Setting MTU: ip link set layertun0 mtu 1500 up
+13:29:50 [32mINFO [0m [90msrc/tunnel.c:98:[0m Running tunnel
+13:29:51 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:51 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:51 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:51 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:51 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:51 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:51 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:51 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:51 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:51 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:51 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:51 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:51 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:51 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:51 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:51 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:51 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:51 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:51 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:51 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:52 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:52 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:52 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:52 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:52 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:52 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:52 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:52 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:52 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:52 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:52 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:52 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:52 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:52 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:52 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:52 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:52 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:52 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:52 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:52 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:54 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:54 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:54 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:54 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:54 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:54 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:54 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:54 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:54 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:54 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:54 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:54 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:54 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:54 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:54 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:54 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:54 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:54 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:54 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:54 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success
+13:29:55 [32mINFO [0m [90msrc/aap2_client.c:418:[0m Bundle sent !
+13:29:55 [36mDEBUG[0m [90msrc/aap2_client.c:334:[0m Success

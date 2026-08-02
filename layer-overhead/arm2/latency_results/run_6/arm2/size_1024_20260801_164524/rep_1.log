@@ -1,0 +1,7 @@
+assigned agent secret: 1c9b37c2-0361-4e00-8d18-162320cacf94
+waiting for bundles...
+RECV seq=1 latency=8.718ms size=1024
+
+--- measurement summary ---
+received : 1 / 1  (100.0% delivery rate)
+latency  : min=8.718 ms  mean=8.718 ms  max=8.718 ms  stddev=0.000 ms

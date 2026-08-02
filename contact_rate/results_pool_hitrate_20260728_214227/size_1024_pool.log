@@ -1,0 +1,35 @@
+listening on :4000  (will print stats after 30 packets)
+RECV seq=1 latency=8.659ms size=1024
+RECV seq=2 latency=11.901ms size=1024
+RECV seq=3 latency=15.713ms size=1024
+RECV seq=4 latency=11.486ms size=1024
+RECV seq=5 latency=8.260ms size=1024
+RECV seq=6 latency=16.327ms size=1024
+RECV seq=7 latency=13.618ms size=1024
+RECV seq=8 latency=12.648ms size=1024
+RECV seq=9 latency=12.316ms size=1024
+RECV seq=10 latency=12.437ms size=1024
+RECV seq=11 latency=5.602ms size=1024
+RECV seq=12 latency=16.853ms size=1024
+RECV seq=13 latency=15.665ms size=1024
+RECV seq=14 latency=13.289ms size=1024
+RECV seq=15 latency=11.054ms size=1024
+RECV seq=16 latency=12.221ms size=1024
+RECV seq=17 latency=12.118ms size=1024
+RECV seq=18 latency=13.012ms size=1024
+RECV seq=19 latency=9.922ms size=1024
+RECV seq=20 latency=10.953ms size=1024
+RECV seq=21 latency=12.881ms size=1024
+RECV seq=22 latency=13.099ms size=1024
+RECV seq=23 latency=12.159ms size=1024
+RECV seq=24 latency=13.210ms size=1024
+RECV seq=25 latency=12.996ms size=1024
+RECV seq=26 latency=12.045ms size=1024
+RECV seq=27 latency=12.528ms size=1024
+RECV seq=28 latency=12.865ms size=1024
+RECV seq=29 latency=13.675ms size=1024
+RECV seq=30 latency=10.863ms size=1024
+
+--- measurement summary ---
+received : 30 / 30  (100.0% delivery rate)
+latency  : min=5.602 ms  mean=12.346 ms  max=16.853 ms  stddev=2.268 ms

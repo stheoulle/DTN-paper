@@ -1,0 +1,6 @@
+listening on :4000  (will print stats after 1 packets)
+RECV seq=1 latency=210.455ms size=4096
+
+--- measurement summary ---
+received : 1 / 1  (100.0% delivery rate)
+latency  : min=210.455 ms  mean=210.455 ms  max=210.455 ms  stddev=0.000 ms

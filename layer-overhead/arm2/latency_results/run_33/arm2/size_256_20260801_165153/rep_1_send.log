@@ -1,0 +1,4 @@
+sending 1 bundle(s) to dtn://node-b.dtn/bench-256-1 size=256 bytes interval=0 ms
+assigned agent secret: 15938686-2b70-4e1e-8dd5-44c6dd9c87ef
+send_adu duration=0.029 ms
+SEND seq=1 size=256

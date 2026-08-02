@@ -1,0 +1,307 @@
+13:30:31 [32mINFO [0m [90msrc/config.c:90:[0m using IP mode with 10.1.0.2 and MTU = 1500
+13:30:31 [32mINFO [0m [90msrc/aap2_client.c:136:[0m Connecting to /tmp/layer-node-b.aap2.socket
+13:30:31 [32mINFO [0m [90msrc/aap2_client.c:136:[0m Connecting to /tmp/layer-node-b.aap2.socket
+13:30:31 [32mINFO [0m [90msrc/tun.c:17:[0m Setting up route: ip addr add 10.1.0.2/30 dev layertun1
+13:30:31 [32mINFO [0m [90msrc/tun.c:20:[0m Setting MTU: ip link set layertun1 mtu 1500 up
+13:30:31 [32mINFO [0m [90msrc/tunnel.c:98:[0m Running tunnel
+13:30:32 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:32 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:32 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 63
+13:30:32 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : =
+dtn://node-a.dtn/charondtn://node-b.dtn/charonþ¶»µ (\ of size : 63
+13:30:32 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:32 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:32 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 63
+13:30:32 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : =
+dtn://node-a.dtn/charondtn://node-b.dtn/charonþ¶»µ (\ of size : 63
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 63
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : =
+dtn://node-a.dtn/charondtn://node-b.dtn/charonþ¶»µ (\ of size : 63
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 63
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : =
+dtn://node-a.dtn/charondtn://node-b.dtn/charonþ¶»µ (\ of size : 63
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 63
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : =
+dtn://node-a.dtn/charondtn://node-b.dtn/charonþ¶»µ (\ of size : 63
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 63
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : =
+dtn://node-a.dtn/charondtn://node-b.dtn/charonþ¶»µ (\ of size : 63
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 63
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : =
+dtn://node-a.dtn/charondtn://node-b.dtn/charonþ¶»µ (\ of size : 63
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 63
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : =
+dtn://node-a.dtn/charondtn://node-b.dtn/charonþ¶»µ (\ of size : 63
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 63
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : =
+dtn://node-a.dtn/charondtn://node-b.dtn/charonþ¶»µ (\ of size : 63
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 63
+13:30:33 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : =
+dtn://node-a.dtn/charondtn://node-b.dtn/charonþ¶»µ (\ of size : 63
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charoná‡·»µ (œ of size : 64
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charoná‡·»µ (œ of size : 64
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charoná‡·»µ (œ of size : 64
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charoná‡·»µ (œ of size : 64
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charoná‡·»µ (œ of size : 64
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonâ‡·»µ (œ of size : 64
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonâ‡·»µ (œ of size : 64
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonâ‡·»µ (œ of size : 64
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonâ‡·»µ (œ of size : 64
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:34 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonâ‡·»µ (œ of size : 64
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charon©‘·»µ (œ of size : 64
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charon©‘·»µ (œ of size : 64
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charon©‘·»µ (œ of size : 64
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonª‘·»µ (œ of size : 64
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonª‘·»µ (œ of size : 64
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonª‘·»µ (œ of size : 64
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:35 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonª‘·»µ (œ of size : 64
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonª‘·»µ (œ of size : 64
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonª‘·»µ (œ of size : 64
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonª‘·»µ (œ of size : 64
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonøš·»µ (Ü of size : 64
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonùš·»µ (Ü of size : 64
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonùš·»µ (Œ	 of size : 64
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonùš·»µ (Ü of size : 64
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:36 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonùš·»µ (Ü of size : 64
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonùš·»µ (Œ	 of size : 64
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonùš·»µ (Ü of size : 64
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonúš·»µ (Ü of size : 64
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonúš·»µ (Œ	 of size : 64
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonúš·»µ (Ü of size : 64
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonúš·»µ (Ü of size : 64
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonúš·»µ (Œ	 of size : 64
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonúš·»µ (Ü of size : 64
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonûš·»µ (Ü of size : 64
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:37 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonûš·»µ (Œ	 of size : 64
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonûš·»µ (Ü of size : 64
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonûš·»µ (Ü of size : 64
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonûš·»µ (Œ	 of size : 64
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonûš·»µ (Ü of size : 64
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonûš·»µ (Ü of size : 64
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonûš·»µ (Œ	 of size : 64
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonûš·»µ 	(Ü of size : 64
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonûš·»µ 
+(Ü of size : 64
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonûš·»µ (Œ	 of size : 64
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:38 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonûš·»µ (Ü of size : 64
+13:30:39 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:39 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:39 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:39 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonüš·»µ (Ü of size : 64
+13:30:39 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:39 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:39 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:39 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonüš·»µ (Œ	 of size : 64
+13:30:39 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:39 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:39 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:39 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonüš·»µ (Ü of size : 64
+13:30:39 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:39 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:39 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:39 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonüš·»µ (Ü of size : 64
+13:30:39 [36mDEBUG[0m [90msrc/aap2_client.c:539:[0m Data in aap2 fd
+13:30:39 [36mDEBUG[0m [90msrc/aap2_client.c:480:[0m Processing single adu
+13:30:39 [36mDEBUG[0m [90msrc/aap2_client.c:486:[0m Receiving adu of size : 64
+13:30:39 [36mDEBUG[0m [90msrc/aap2_client.c:495:[0m Received aap2 message : >
+dtn://node-a.dtn/charondtn://node-b.dtn/charonüš·»µ (Œ	 of size : 64

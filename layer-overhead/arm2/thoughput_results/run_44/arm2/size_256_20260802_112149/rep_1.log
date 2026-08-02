@@ -1,0 +1,16 @@
+assigned agent secret: 42f88581-d6ef-487d-941d-8be1541efc6d
+waiting for bundles...
+RECV seq=1 latency=1.418ms size=256
+RECV seq=2 latency=103.130ms size=256
+RECV seq=3 latency=204.776ms size=256
+RECV seq=4 latency=307.427ms size=256
+RECV seq=5 latency=408.747ms size=256
+RECV seq=6 latency=510.293ms size=256
+RECV seq=7 latency=612.644ms size=256
+RECV seq=8 latency=705.702ms size=256
+RECV seq=9 latency=807.411ms size=256
+RECV seq=10 latency=908.276ms size=256
+
+--- measurement summary ---
+received : 10 / 10  (100.0% delivery rate)
+latency  : min=1.418 ms  mean=456.982 ms  max=908.276 ms  stddev=289.215 ms

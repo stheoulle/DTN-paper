@@ -256,3 +256,39 @@ index 5f30cae2..8aba6e79 100644
              ClaType::Cspcl(config) => {
                  let cla =
                      Arc::new(hardy_cspcl::Cla::new(config).map_err(|e| {
+diff --git a/asabr-routing/src/topology.rs b/asabr-routing/src/topology.rs
+index a81f776f..55704a0b 100644
+--- a/asabr-routing/src/topology.rs
++++ b/asabr-routing/src/topology.rs
+@@ -119,6 +119,7 @@ mod tests {
+             router: "SpsnHybridParenting".into(),
+             contact_plan_path: PathBuf::from("tests/data/plan.cp"),
+             local_node_id: "dtn://mars/".parse().unwrap(),
++            eid_map: Default::default(),
+         };
+ 
+         let error = Topology::load(&config).unwrap_err();
+@@ -133,6 +134,7 @@ mod tests {
+             router: "SpsnHybridParenting".into(),
+             contact_plan_path: PathBuf::from("tests/data/plan.cp"),
+             local_node_id: hardy_bpv7::eid::NodeId::LocalNode,
++            eid_map: Default::default(),
+         };
+ 
+         let error = Topology::load(&config).unwrap_err();
+@@ -150,6 +152,7 @@ mod tests {
+             router: "SpsnHybridParenting".into(),
+             contact_plan_path: PathBuf::from("tests/data/plan.cp"),
+             local_node_id: "ipn:70000.0".parse().unwrap(),
++            eid_map: Default::default(),
+         };
+ 
+         let error = Topology::load(&config).unwrap_err();
+@@ -164,6 +167,7 @@ mod tests {
+             router: "SpsnHybridParenting".into(),
+             contact_plan_path: PathBuf::from("tests/data/plan.cp"),
+             local_node_id: "ipn:1.7.0".parse().unwrap(),
++            eid_map: Default::default(),
+         };
+ 
+         let error = Topology::load(&config).unwrap_err();

@@ -1,0 +1,7 @@
+assigned agent secret: cdc62bc0-0576-4e80-aa2f-cfb37308a722
+waiting for bundles...
+RECV seq=1 latency=2.982ms size=1024
+
+--- measurement summary ---
+received : 1 / 1  (100.0% delivery rate)
+latency  : min=2.982 ms  mean=2.982 ms  max=2.982 ms  stddev=0.000 ms

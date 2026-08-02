@@ -1,57 +1,5 @@
-diff --git a/src/cspcl.c b/src/cspcl.c
-index 77d9666..6c9d8f9 100644
---- a/src/cspcl.c
-+++ b/src/cspcl.c
-@@ -140,7 +140,7 @@ static csp_conn_t *cspcl_pool_get_or_create_locked(cspcl_conn_pool_t *pool, uint
-     pool->stats.evictions++;
-   }
- 
--  csp_conn_t *conn = csp_connect(CSP_PRIO_NORM, dest_addr, dest_port, CSPCL_CSP_TIMEOUT_MS,
-+  csp_conn_t *conn = csp_connect(CSP_PRIO_NORM, dest_addr, dest_port, CSPCL_CSP_CONNECT_TIMEOUT_MS,
-                                  CSPCL_CSP_CONN_OPTIONS);
-   if (conn == NULL) {
-     pool->stats.connect_failures++;
-@@ -453,9 +453,10 @@ cspcl_error_t cspcl_send_bundle(cspcl_t *cspcl, const uint8_t *bundle, size_t le
-   /* Use CSP's SFP to send the bundle with automatic fragmentation */
-   int ret = csp_sfp_send(conn, bundle, (unsigned int) len, CSPCL_MAX_PAYLOAD, CSPCL_CSP_TIMEOUT_MS);
- 
--  if (ret != CSP_ERR_NONE) {
--    cspcl_pool_invalidate_locked(pool, dest_addr, dest_port);
--  }
-+  /* Always invalidate: with RDP the receiver closes the connection after
-+   * delivery, so any cached conn is stale by the next send.  Reusing a
-+   * remotely-closed RDP connection corrupts libcsp internal state. */
-+  cspcl_pool_invalidate_locked(pool, dest_addr, dest_port);
- 
-   if (cspcl_pool_unlock(pool) != 0) {
-     CSPCL_LOG("pool unlock failed after send");
-diff --git a/src/cspcl_config.h b/src/cspcl_config.h
-index 0b940a6..8539c79 100644
---- a/src/cspcl_config.h
-+++ b/src/cspcl_config.h
-@@ -33,11 +33,19 @@
- #define CSPCL_PORT_BP 10
- #endif
- 
--/** CSP connection timeout in milliseconds */
-+/** CSP timeout (ms) for SFP fragment sends and csp_accept */
- #ifndef CSPCL_CSP_TIMEOUT_MS
- #define CSPCL_CSP_TIMEOUT_MS 1000
- #endif
- 
-+/** CSP timeout (ms) per RDP SYN retransmission attempt in csp_connect.
-+ *  CSP RDP retries ~10 times, so the total failure window is
-+ *  CSPCL_CSP_CONNECT_TIMEOUT_MS * ~10.  Keep this well under any caller's
-+ *  PDU watchdog (unibo-bp fires at ~10 s, so stay under ~1 s total). */
-+#ifndef CSPCL_CSP_CONNECT_TIMEOUT_MS
-+#define CSPCL_CSP_CONNECT_TIMEOUT_MS 100
-+#endif
-+
- /** CSP connection options for outbound connections (bitmask of CSP_O_*) */
- #ifndef CSPCL_CSP_CONN_OPTIONS
- #define CSPCL_CSP_CONN_OPTIONS CSP_O_RDP
 diff --git a/ud3tn-integration/dev.patch b/ud3tn-integration/dev.patch
-index d373dff..013d291 100644
+index d373dff..a362fda 100644
 --- a/ud3tn-integration/dev.patch
 +++ b/ud3tn-integration/dev.patch
 @@ -27,8 +27,8 @@ index b109adb..a33110c 100644
@@ -74,3 +22,44 @@ index d373dff..013d291 100644
  +
  +
   ifndef DISABLE_SQLITE_STORAGE
+diff --git a/rust-bindings/cspcl/Cargo.toml b/rust-bindings/cspcl/Cargo.toml
+index 89d5dc8..4b68d00 100644
+--- a/rust-bindings/cspcl/Cargo.toml
++++ b/rust-bindings/cspcl/Cargo.toml
+@@ -1,6 +1,6 @@
+ [package]
+ name = "cspcl"
+-version = "0.4.0"
++version = "0.6.2"
+ edition.workspace = true
+ description = "Rust bindings for the cspcl library"
+ authors = ["cspcl contributors"]
+@@ -9,6 +9,13 @@ repository = "https://github.com/d3tn/cspcl"
+ readme = "README.md"
+ keywords = ["cspcl"]
+ 
++[features]
++# tokio support is unconditional in this crate (unlike the published
++# crates.io version, which gates it behind this feature). Kept as a
++# no-op so callers requesting it (e.g. hardy's `cspcl-bindings`
++# dependency) don't fail feature resolution.
++async-tokio = []
++
+ [dependencies]
+ bytes = "1.12.0"
+ cspcl-sys = { version = "0.3", path = "../cspcl-sys" }
+diff --git a/rust-bindings/cspcl/src/address.rs b/rust-bindings/cspcl/src/address.rs
+index 443aa62..493cc27 100644
+--- a/rust-bindings/cspcl/src/address.rs
++++ b/rust-bindings/cspcl/src/address.rs
+@@ -13,7 +13,9 @@ impl TryFrom<Bytes> for CspAddress {
+ 
+     fn try_from(value: Bytes) -> Result<Self, Self::Error> {
+         let mut raw_addr = value.into_iter();
+-        raw_addr.len().eq(&2).ok_or(ParseAddress)?;
++        if raw_addr.len() != 2 {
++            return Err(ParseAddress);
++        }
+         let addr = raw_addr.next().ok_or(ParseAddress)?;
+         let port = raw_addr.next().ok_or(ParseAddress)?;
+         Ok(Self { addr, port })

@@ -1,0 +1,13 @@
+listening on :4000  (will print stats after 10 packets)
+RECV seq=1 latency=2921.175ms size=4096
+ize=4096 bytes  interval=0 ms
+SEND seq=1 ts=33209.425604387 size=4096
+SEND seq=2 ts=33209.425650321 size=4096
+SEND seq=3 ts=33209.425662499 size=4096
+SEND seq=4 ts=33209.425671887 size=4096
+SEND seq=5 ts=33209.425679214 size=4096
+SEND seq=6 ts=33209.425686373 size=4096
+SEND seq=7 ts=33209.425693682 size=4096
+SEND seq=8 ts=33209.425703335 size=4096
+SEND seq=9 ts=33209.425712037 size=4096
+SEND seq=10 ts=33209.425721264 size=4096

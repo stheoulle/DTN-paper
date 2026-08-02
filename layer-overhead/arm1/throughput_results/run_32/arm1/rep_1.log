@@ -1,0 +1,7 @@
+[csp_raw_receiver] listening on addr 1 port 20
+RECV seq=1 latency=0.120ms size=64
+
+--- csp_raw measurement summary ---
+received : 1 / 1  (100.0% delivery rate)
+latency  : min=0.120 ms  mean=0.120 ms  max=0.120 ms  stddev=0.000 ms
+throughput: 30507.3 packets/sec  1952.5 kB/s

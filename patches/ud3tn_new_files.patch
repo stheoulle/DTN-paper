@@ -1,6 +1,9 @@
---- /dev/null	2026-06-12 15:59:13.144216426 +0200
-+++ b/components/cla/posix/cla_csp.c	2026-06-14 14:17:25.687605686 +0200
-@@ -0,0 +1,999 @@
+diff --git a/components/cla/posix/cla_csp.c b/components/cla/posix/cla_csp.c
+new file mode 100644
+index 0000000..e58f65c
+--- /dev/null
++++ b/components/cla/posix/cla_csp.c
+@@ -0,0 +1,981 @@
 +// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
 +/**
 + * @file cla_csp.c
@@ -33,6 +36,23 @@
 +/* CSPCL library */
 +#include "cspcl.h"
 +
++/* Configuration defaults (fallback if cspcl_config.h not available in build) */
++#ifndef CSPCL_TX_BUFFER_SIZE
++#define CSPCL_TX_BUFFER_SIZE 65536
++#endif
++#ifndef CSPCL_RX_BUFFER_SIZE
++#define CSPCL_RX_BUFFER_SIZE 65536
++#endif
++#ifndef CSPCL_IFACE_PARAM_MAX
++#define CSPCL_IFACE_PARAM_MAX 64
++#endif
++#ifndef CSPCL_ZMQHUB_ADDR_DEFAULT
++#define CSPCL_ZMQHUB_ADDR_DEFAULT "localhost"
++#endif
++#ifndef CSPCL_CAN_IFACE_DEFAULT
++#define CSPCL_CAN_IFACE_DEFAULT "vcan0"
++#endif
++
 +/* libcsp headers for direct CSP stack control */
 +#include <csp/csp.h>
 +#include <csp/csp_rtable.h>
@@ -57,29 +77,18 @@
 +
 +static const char *CLA_NAME = "csp";
 +
-+/** Maximum number of concurrent CSP links */
-+#define CSP_MAX_LINKS 16
-+
 +/** Hash table slots for parameter storage */
 +#define CSP_PARAM_HTAB_SLOT_COUNT 8
 +
-+/** Default CSP port for Bundle Protocol */
-+#define CSP_DEFAULT_BP_PORT 10
-+
-+/** RX buffer size */
-+#define CSP_RX_BUFFER_SIZE 65536
-+
-+/** TX buffer size */
-+#define CSP_TX_BUFFER_SIZE 65536
-+
-+/** Default ZMQHUB server address */
-+#define CSP_ZMQHUB_ADDR_DEFAULT "localhost"
-+
-+/** Default CAN interface name */
-+#define CSP_CAN_IFACE_DEFAULT "vcan0"
-+
-+/** Maximum length for ZMQHUB address or CAN interface name */
-+#define CSP_IFACE_PARAM_MAX 64
++/* All other constants now defined in cspcl_config.h:
++ * - CSPCL_MAX_LINKS = CSPCL_MAX_LINKS
++ * - CSP_DEFAULT_BP_PORT = CSPCL_PORT_BP
++ * - CSP_RX_BUFFER_SIZE = CSPCL_RX_BUFFER_SIZE
++ * - CSP_TX_BUFFER_SIZE = CSPCL_TX_BUFFER_SIZE
++ * - CSP_ZMQHUB_ADDR_DEFAULT = CSPCL_ZMQHUB_ADDR_DEFAULT
++ * - CSP_CAN_IFACE_DEFAULT = CSPCL_CAN_IFACE_DEFAULT
++ * - CSP_IFACE_PARAM_MAX = CSPCL_IFACE_PARAM_MAX
++ */
 +
 +/** Flag to track if CSP has been initialized globally */
 +static bool csp_initialized = false;
@@ -196,72 +205,10 @@
 +/* Helper Functions                                                           */
 +/*===========================================================================*/
 +
-+/**
-+ * @brief Parse CSP address from CLA address string
-+ *
-+ * Expects format: "csp:<addr>" where addr is 0-255
-+ *
-+ * @param cla_addr  Full CLA address (e.g., "csp:2")
-+ * @return CSP address, or 0 on parse error
++/* PHASE 2: Address parsing from cspcl library
++ * Uses cspcl_parse_address(), cspcl_parse_port(), and cspcl_is_valid_address_string()
++ * for standardized address parsing across all integrations
 + */
-+static uint8_t parse_csp_addr(const char *cla_addr)
-+{
-+  if (!cla_addr)
-+    return 0;
-+
-+  /* Skip CLA name prefix if present */
-+  const char *addr_str = cla_addr;
-+  if (strncmp(addr_str, "csp:", 4) == 0) {
-+    addr_str += 4;
-+  }
-+
-+  int addr = atoi(addr_str);
-+  if (addr < 0 || addr > 255)
-+    return 0;
-+
-+  return (uint8_t) addr;
-+}
-+
-+static bool is_valid_csp_addr_string(const char *cla_addr, uint8_t parsed_addr)
-+{
-+  if (parsed_addr != 0 || !cla_addr)
-+    return parsed_addr != 0;
-+
-+  const char *addr_str = cla_addr;
-+  if (strncmp(addr_str, "csp:", 4) == 0)
-+    addr_str += 4;
-+
-+  return addr_str[0] == '0' && (addr_str[1] == '\0' || addr_str[1] == ',');
-+}
-+
-+/**
-+ * @brief Parse CSP port from CLA address string
-+ *
-+ * Expects format: "csp:<addr>,<port>" or falls back to CSP_DEFAULT_BP_PORT
-+ *
-+ * @param cla_addr  Full CLA address (e.g., "csp:2,10")
-+ * @return CSP port
-+ */
-+static uint8_t parse_csp_port(const char *cla_addr)
-+{
-+  if (!cla_addr)
-+    return CSP_DEFAULT_BP_PORT;
-+
-+  const char *addr_str = cla_addr;
-+  if (strncmp(addr_str, "csp:", 4) == 0)
-+    addr_str += 4;
-+
-+  const char *comma = strchr(addr_str, ',');
-+  if (!comma)
-+    return CSP_DEFAULT_BP_PORT;
-+
-+  int port = atoi(comma + 1);
-+  if (port < 0 || port > 31)
-+    return CSP_DEFAULT_BP_PORT;
-+
-+  return (uint8_t) port;
-+}
-+
 +
 +static char *create_cla_addr(uint8_t csp_addr, uint8_t csp_port)
 +{
@@ -288,17 +235,17 @@
 +  link->dest_port = dest_port;
 +
 +  /* Allocate TX buffer */
-+  link->tx_buffer = malloc(CSP_TX_BUFFER_SIZE);
++  link->tx_buffer = malloc(CSPCL_TX_BUFFER_SIZE);
 +  if (!link->tx_buffer) {
 +    LOG_ERROR("CSP: Failed to allocate TX buffer");
 +    cla_link_cleanup(&link->base);
 +    return UD3TN_FAIL;
 +  }
 +  link->tx_buffer_len = 0;
-+  link->tx_buffer_capacity = CSP_TX_BUFFER_SIZE;
++  link->tx_buffer_capacity = CSPCL_TX_BUFFER_SIZE;
 +
 +  /* Allocate RX buffer */
-+  link->rx_buffer = malloc(CSP_RX_BUFFER_SIZE);
++  link->rx_buffer = malloc(CSPCL_RX_BUFFER_SIZE);
 +  if (!link->rx_buffer) {
 +    LOG_ERROR("CSP: Failed to allocate RX buffer");
 +    free(link->tx_buffer);
@@ -443,7 +390,7 @@
 +static void csp_rx_task(void *p)
 +{
 +  struct csp_cla_config *const config = p;
-+  uint8_t bundle_buffer[CSP_RX_BUFFER_SIZE];
++  uint8_t bundle_buffer[CSPCL_RX_BUFFER_SIZE];
 +  size_t bundle_len;
 +  uint8_t src_addr;
 +  uint8_t src_port;
@@ -458,15 +405,38 @@
 +                                          &src_port, 1000 /* 1 second timeout */
 +    );
 +
-+    if (err == CSPCL_ERR_TIMEOUT)
-+      continue;
++    /* Log every 10th iteration to confirm loop is running */
++    static int loop_count = 0;
++    if (++loop_count % 10 == 0) {
++      LOGF_INFO("CSP: RX loop iteration %d, last_err=%d", loop_count, err);
++    }
 +
-+    if (err != CSPCL_OK) {
-+      LOGF_WARN("CSP: RX error: %s", cspcl_strerror(err));
++    if (err == CSPCL_ERR_TIMEOUT) {
++      /* Expected on idle links - no incoming connection */
++      static int timeout_count = 0;
++      if (++timeout_count % 10 == 0) {
++        LOGF_INFO("CSP: RX waiting - socket=%p, init=%d", config->cspcl.rx_socket,
++                  config->cspcl.initialized);
++      }
 +      continue;
 +    }
 +
-+    LOGF_DEBUG("CSP: Received %zu bytes from csp:%u,%u", bundle_len, src_addr, src_port);
++    if (err != CSPCL_OK) {
++      /* Enhanced error logging for diagnosis */
++      if (err == CSPCL_ERR_SFP) {
++        LOGF_WARN("CSP: RX SFP ERROR - Incomplete bundle from csp:%u:%u (fragments missing, "
++                  "discarding)",
++                  src_addr, src_port);
++      } else if (err == CSPCL_ERR_CSP_RECV) {
++        LOGF_WARN("CSP: RX CSP_RECV error - Link issue from csp:%u:%u", src_addr, src_port);
++      } else {
++        LOGF_WARN("CSP: RX error code %d from csp:%u:%u", err, src_addr, src_port);
++      }
++      continue;
++    }
++
++    LOGF_INFO("CSP: RX COMPLETE - Got %zu bytes from csp:%u:%u (all fragments ACK'd)", bundle_len,
++              src_addr, src_port);
 +
 +    /* Look up or create link for this source */
 +    char *cla_addr = create_cla_addr(src_addr, src_port);
@@ -489,7 +459,7 @@
 +
 +    /* Store received data in link's RX buffer */
 +    hal_semaphore_take_blocking(param->param_semphr);
-+    if (bundle_len <= CSP_RX_BUFFER_SIZE - param->link.rx_buffer_len) {
++    if (bundle_len <= CSPCL_RX_BUFFER_SIZE - param->link.rx_buffer_len) {
 +      memcpy(param->link.rx_buffer + param->link.rx_buffer_len, bundle_buffer, bundle_len);
 +      param->link.rx_buffer_len += bundle_len;
 +    }
@@ -549,13 +519,12 @@
 +      .tx_queue_sem = NULL,
 +  };
 +
-+  uint8_t dest_addr = parse_csp_addr(cla_addr);
-+  if (!is_valid_csp_addr_string(cla_addr, dest_addr)) {
++  uint8_t dest_port = CSPCL_PORT_BP;
++  uint8_t dest_addr = cspcl_parse_address(cla_addr, &dest_port);
++  if (!cspcl_is_valid_address_string(cla_addr, dest_addr)) {
 +    LOGF_WARN("CSP: Invalid CLA address: %s", cla_addr);
 +    return result;
 +  }
-+
-+  uint8_t dest_port = parse_csp_port(cla_addr);
 +  char *normalized_addr = create_cla_addr(dest_addr, dest_port);
 +  if (!normalized_addr) {
 +    return result;
@@ -584,13 +553,12 @@
 +  (void) eid;
 +  struct csp_cla_config *const csp_config = (struct csp_cla_config *) config;
 +
-+  uint8_t dest_addr = parse_csp_addr(cla_addr);
-+  if (!is_valid_csp_addr_string(cla_addr, dest_addr)) {
++  uint8_t dest_port = CSPCL_PORT_BP;
++  uint8_t dest_addr = cspcl_parse_address(cla_addr, &dest_port);
++  if (!cspcl_is_valid_address_string(cla_addr, dest_addr)) {
 +    LOGF_WARN("CSP: Invalid CLA address for contact: %s", cla_addr);
 +    return CLA_LINK_UPDATE_FAILED;
 +  }
-+
-+  uint8_t dest_port = parse_csp_port(cla_addr);
 +  char *normalized_addr = create_cla_addr(dest_addr, dest_port);
 +  if (!normalized_addr) {
 +    return CLA_LINK_UPDATE_FAILED;
@@ -625,12 +593,12 @@
 +{
 +  (void) eid;
 +  struct csp_cla_config *const csp_config = (struct csp_cla_config *) config;
-+  uint8_t dest_addr = parse_csp_addr(cla_addr);
-+  if (!is_valid_csp_addr_string(cla_addr, dest_addr)) {
++  uint8_t dest_port = CSPCL_PORT_BP;
++  uint8_t dest_addr = cspcl_parse_address(cla_addr, &dest_port);
++  if (!cspcl_is_valid_address_string(cla_addr, dest_addr)) {
 +    LOGF_WARN("CSP: Invalid CLA address for contact end: %s", cla_addr);
 +    return CLA_LINK_UPDATE_FAILED;
 +  }
-+  uint8_t dest_port = parse_csp_port(cla_addr);
 +  char *normalized_addr = create_cla_addr(dest_addr, dest_port);
 +  if (!normalized_addr) {
 +    return CLA_LINK_UPDATE_FAILED;
@@ -691,7 +659,8 @@
 +    return UD3TN_OK;
 +  }
 +
-+  LOGF_DEBUG("CSP: Sending %zu bytes to csp:%u", csp_link->tx_buffer_len, csp_link->dest_addr);
++  LOGF_DEBUG("CSP: Sending %zu bytes to csp:%u:%u", csp_link->tx_buffer_len, csp_link->dest_addr,
++             csp_link->dest_port);
 +
 +  /* Send bundle via CSPCL */
 +  cspcl_error_t err =
@@ -702,11 +671,27 @@
 +  csp_link->tx_buffer_len = 0;
 +
 +  if (err != CSPCL_OK) {
-+    LOGF_WARN("CSP: Failed to send bundle: %s", cspcl_strerror(err));
++    /* Enhanced error logging with diagnostic information */
++    if (err == CSPCL_ERR_TIMEOUT) {
++      LOGF_ERROR("CSP: TX TIMEOUT - No ACKs received from csp:%u:%u (receiver offline or no link)",
++                 csp_link->dest_addr, csp_link->dest_port);
++    } else if (err == CSPCL_ERR_CONNECTION) {
++      LOGF_ERROR("CSP: TX CONNECTION FAILED - Link broken to csp:%u:%u (will reconnect)",
++                 csp_link->dest_addr, csp_link->dest_port);
++    } else if (err == CSPCL_ERR_CSP_SEND) {
++      LOGF_ERROR("CSP: TX CSP_SEND error - CSP layer problem csp:%u:%u", csp_link->dest_addr,
++                 csp_link->dest_port);
++    } else if (err == CSPCL_ERR_BUNDLE_TOO_LARGE) {
++      LOGF_ERROR("CSP: TX BUNDLE TOO LARGE - %zu bytes exceeds max", csp_link->tx_buffer_len);
++    } else {
++      LOGF_WARN("CSP: TX failed - %s", cspcl_strerror(err));
++    }
++
 +    link->config->vtable->cla_disconnect_handler(link);
 +    return UD3TN_FAIL;
 +  }
 +
++  LOGF_DEBUG("CSP: TX success - bundle ACK'd by receiver (%zu bytes)", csp_link->tx_buffer_len);
 +  return UD3TN_OK;
 +}
 +
@@ -905,15 +890,15 @@
 +  config->cspcl.csp_port = (uint8_t) atoi(options[1]);
 +
 +  config->cspcl.iface_type = CSP_IFACE_ZMQHUB;
-+  strncpy(config->cspcl.zmqhub_addr, CSP_ZMQHUB_ADDR_DEFAULT, CSP_IFACE_PARAM_MAX - 1);
-+  strncpy(config->cspcl.can_iface, CSP_CAN_IFACE_DEFAULT, CSP_IFACE_PARAM_MAX - 1);
++  strncpy(config->cspcl.zmqhub_addr, CSPCL_ZMQHUB_ADDR_DEFAULT, CSPCL_IFACE_PARAM_MAX - 1);
++  strncpy(config->cspcl.can_iface, CSPCL_CAN_IFACE_DEFAULT, CSPCL_IFACE_PARAM_MAX - 1);
 +
 +  if (option_count >= 3) {
 +    const char *iface_spec = options[2];
 +
 +    if (strncmp(iface_spec, "zmqhub:", 7) == 0) {
 +      config->cspcl.iface_type = CSP_IFACE_ZMQHUB;
-+      strncpy(config->cspcl.zmqhub_addr, iface_spec + 7, CSP_IFACE_PARAM_MAX - 1);
++      strncpy(config->cspcl.zmqhub_addr, iface_spec + 7, CSPCL_IFACE_PARAM_MAX - 1);
 +      if (config->cspcl.zmqhub_addr[0] == '\0') {
 +        LOG_ERROR("CSP: zmqhub:<host> — host must not be empty");
 +        free(config);
@@ -923,7 +908,7 @@
 +      config->cspcl.iface_type = CSP_IFACE_ZMQHUB;
 +    } else if (strncmp(iface_spec, "can:", 4) == 0) {
 +      config->cspcl.iface_type = CSP_IFACE_CAN;
-+      strncpy(config->cspcl.can_iface, iface_spec + 4, CSP_IFACE_PARAM_MAX - 1);
++      strncpy(config->cspcl.can_iface, iface_spec + 4, CSPCL_IFACE_PARAM_MAX - 1);
 +      if (config->cspcl.can_iface[0] == '\0') {
 +        LOG_ERROR("CSP: can:<iface> — interface name must not be empty");
 +        free(config);
@@ -1000,8 +985,11 @@
 +  }
 +  return &config->base;
 +}
---- /dev/null	2026-06-12 15:59:13.144216426 +0200
-+++ b/include/cla/cla_csp.h	2026-06-14 14:17:25.689442444 +0200
+diff --git a/include/cla/cla_csp.h b/include/cla/cla_csp.h
+new file mode 100644
+index 0000000..e7830f8
+--- /dev/null
++++ b/include/cla/cla_csp.h
 @@ -0,0 +1,88 @@
 +// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
 +/**
@@ -1091,9 +1079,12 @@
 +                               size_t *bytes_read);
 +
 +#endif /* CLA_CSP_H */
---- /dev/null	2026-06-12 15:59:13.144216426 +0200
-+++ b/external/cspcl/cspcl.c	2026-06-14 14:17:19.727103683 +0200
-@@ -0,0 +1,751 @@
+diff --git a/external/cspcl/cspcl.c b/external/cspcl/cspcl.c
+new file mode 100644
+index 0000000..694be3d
+--- /dev/null
++++ b/external/cspcl/cspcl.c
+@@ -0,0 +1,1329 @@
 +/**
 + * @file cspcl.c
 + * @brief CSPCL - CubeSat Space Protocol Convergence Layer Implementation
@@ -1108,6 +1099,7 @@
 +
 +#include "cspcl_config.h"
 +
++#include <stdbool.h>
 +#include <stdio.h>
 +#include <stdlib.h>
 +#include <string.h>
@@ -1172,6 +1164,68 @@
 +#else
 +  return xSemaphoreGive(pool->lock) == pdTRUE ? 0 : -1;
 +#endif
++}
++
++static size_t cspcl_pool_find_free_or_evict_locked(cspcl_conn_pool_t *pool)
++{
++  for (size_t i = 0; i < CSPCL_CONN_POOL_SIZE; i++) {
++    if (!pool->entries[i].used) {
++      return i;
++    }
++  }
++
++  size_t lru = 0;
++  uint32_t oldest = pool->entries[0].last_used;
++
++  for (size_t i = 1; i < CSPCL_CONN_POOL_SIZE; i++) {
++    if (pool->entries[i].last_used < oldest) {
++      oldest = pool->entries[i].last_used;
++      lru = i;
++    }
++  }
++
++  if (pool->entries[lru].conn != NULL) {
++    csp_close(pool->entries[lru].conn);
++    pool->entries[lru].conn = NULL;
++  }
++
++  pool->entries[lru].used = false;
++  pool->stats.evictions++;
++
++  return lru;
++}
++
++cspcl_error_t cspcl_conn_pool_add(cspcl_conn_pool_t *pool, uint8_t dest_addr, uint8_t dest_port,
++                                  csp_conn_t *conn)
++{
++  if (pool == NULL || conn == NULL) {
++    return CSPCL_ERR_INVALID_PARAM;
++  }
++
++  if (!pool->initialized) {
++    return CSPCL_ERR_NOT_INITIALIZED;
++  }
++
++  if (cspcl_pool_lock(pool) != 0) {
++    return CSPCL_ERR_CONNECTION;
++  }
++
++  pool->tick++;
++
++  size_t slot = cspcl_pool_find_free_or_evict_locked(pool);
++
++  pool->entries[slot].used = true;
++  pool->entries[slot].dest_addr = dest_addr;
++  pool->entries[slot].dest_port = dest_port;
++  pool->entries[slot].conn = conn;
++  pool->entries[slot].last_used = pool->tick;
++
++#ifndef FREERTOS
++  pool->entries[slot].connected_at = time(NULL);
++#endif
++
++  (void) cspcl_pool_unlock(pool);
++  return CSPCL_OK;
 +}
 +
 +static csp_conn_t *cspcl_pool_get_or_create_locked(cspcl_conn_pool_t *pool, uint8_t dest_addr,
@@ -1300,6 +1354,9 @@
 +      return pool_err;
 +    }
 +
++    memset(cspcl->rx_conns, 0, sizeof(cspcl->rx_conns));
++    cspcl->rx_tick = 0;
++
 +#ifndef FREERTOS
 +    pthread_mutex_lock(&g_cspcl_global_lock);
 +#endif
@@ -1310,15 +1367,16 @@
 +      csp_conf_get_defaults(&csp_conf);
 +      csp_conf.address = cspcl->local_addr;
 +      csp_conf.hostname = "ud3tn";
-+      csp_conf.model = "csp-cla";
-+      csp_conf.revision = "1.0";
-+      csp_conf.conn_max = CSPCL_CONN_POOL_SIZE + 4; /* Must exceed pool size */
-+      csp_conf.conn_queue_length = 100;
-+      csp_conf.fifo_length = 25;
-+      csp_conf.port_max_bind = 31;
-+      csp_conf.rdp_max_window = 20;
-+      csp_conf.buffers = 100;
-+      csp_conf.buffer_data_size = 256;
++      csp_conf.model = CSPCL_CSP_MODEL;
++      csp_conf.revision = CSPCL_CSP_REVISION;
++      /* Must cover outbound pool + held inbound connections */
++      csp_conf.conn_max = CSPCL_CONN_POOL_SIZE + CSPCL_RX_CONN_TABLE_SIZE + 4;
++      csp_conf.conn_queue_length = CSPCL_CSP_CONN_QUEUE_LENGTH;
++      csp_conf.fifo_length = CSPCL_CSP_FIFO_LENGTH;
++      csp_conf.port_max_bind = CSPCL_CSP_PORT_MAX_BIND;
++      csp_conf.rdp_max_window = CSPCL_CSP_RDP_MAX_WINDOW;
++      csp_conf.buffers = CSPCL_CSP_BUFFERS;
++      csp_conf.buffer_data_size = CSPCL_CSP_BUFFER_DATA_SIZE;
 +
 +      int ret = csp_init(&csp_conf);
 +      if (ret != CSP_ERR_NONE) {
@@ -1434,6 +1492,15 @@
 +  cspcl_close_rx_socket(cspcl);
 +  cspcl_release_conn_pool(cspcl);
 +
++  /* Close live inbound connections */
++  for (size_t i = 0; i < CSPCL_RX_CONN_TABLE_SIZE; i++) {
++    if (cspcl->rx_conns[i].used && cspcl->rx_conns[i].conn != NULL) {
++      csp_close(cspcl->rx_conns[i].conn);
++    }
++    cspcl->rx_conns[i].conn = NULL;
++    cspcl->rx_conns[i].used = false;
++  }
++
 +  cspcl->initialized = false;
 +}
 +
@@ -1512,6 +1579,59 @@
 +}
 +
 +/*===========================================================================*/
++/* Application-Level Delivery Acknowledgement                                 */
++/*===========================================================================*/
++
++/* csp_sfp_send()/csp_send() only report that data was queued locally (and,
++ * on an RDP connection, accepted into the transmit window) - not that the
++ * peer received it. cspcl confirms real delivery itself: the receiver sends
++ * a small ack packet back on the same connection once it has successfully
++ * reassembled a bundle, and the sender waits for it. This needs nothing
++ * beyond stock CSP connection-oriented sockets (csp_send/csp_read), so it
++ * works against an unmodified libcsp build. */
++
++static int cspcl_send_ack(csp_conn_t *conn)
++{
++  csp_packet_t *packet = csp_buffer_get(1);
++  if (packet == NULL) {
++    return CSP_ERR_NOMEM;
++  }
++
++  packet->data[0] = CSPCL_ACK_MAGIC;
++  packet->length = 1;
++
++  /* csp_send() returns 1 on success, 0 on failure (unlike most other CSP
++   * calls, which return a CSP_ERR_* code). */
++  if (!csp_send(conn, packet, CSPCL_CSP_TIMEOUT_MS)) {
++    csp_buffer_free(packet);
++    return CSP_ERR_TIMEDOUT;
++  }
++
++  return CSP_ERR_NONE;
++}
++
++static int cspcl_wait_ack(csp_conn_t *conn, uint32_t timeout_ms)
++{
++  csp_packet_t *packet = csp_read(conn, timeout_ms);
++  if (packet == NULL) {
++    return CSP_ERR_TIMEDOUT;
++  }
++
++  csp_buffer_free(packet);
++  return CSP_ERR_NONE;
++}
++
++static int cspcl_send_and_confirm(csp_conn_t *conn, const uint8_t *bundle, size_t len)
++{
++  int ret = csp_sfp_send(conn, bundle, (unsigned int) len, CSPCL_MAX_PAYLOAD, CSPCL_CSP_TIMEOUT_MS);
++  if (ret != CSP_ERR_NONE) {
++    return ret;
++  }
++
++  return cspcl_wait_ack(conn, CSPCL_ACK_TIMEOUT_MS);
++}
++
++/*===========================================================================*/
 +/* Bundle Transmission Functions                                              */
 +/*===========================================================================*/
 +
@@ -1539,24 +1659,47 @@
 +    return CSPCL_ERR_CONNECTION;
 +  }
 +
-+  /* Reuse pooled connection or open a new one on miss */
-+  csp_conn_t *conn = cspcl_pool_get_or_create_locked(pool, dest_addr, dest_port);
-+  if (conn == NULL) {
-+    (void) cspcl_pool_unlock(pool);
-+    return CSPCL_ERR_CONNECTION;
++  /* Send the bundle with one reconnect retry. A pooled connection may be
++   * stale (e.g. the peer restarted), so on failure we invalidate it and try
++   * a fresh connection once. Uses CSP's SFP to send, then waits for the
++   * receiver's application-level ack to confirm it actually arrived. */
++  int ret = CSP_ERR_TIMEDOUT;
++  bool conn_failed = false;
++
++  for (int attempt = 0; attempt < 2; attempt++) {
++    csp_conn_t *conn = cspcl_pool_get_or_create_locked(pool, dest_addr, dest_port);
++    if (conn == NULL) {
++      /* Only a first-attempt failure to obtain a connection is a hard
++       * connection error. If reconnect fails on the retry, fall through and
++       * report the original send failure (which stays retryable). */
++      if (attempt == 0) {
++        conn_failed = true;
++      }
++      break;
++    }
++
++    ret = cspcl_send_and_confirm(conn, bundle, len);
++    if (ret == CSP_ERR_NONE) {
++      break; /* Delivered and acked */
++    }
++
++    /* Stale or broken connection - invalidate so the next attempt (if any)
++     * reconnects, and so a dead connection never lingers in the pool. */
++    cspcl_pool_invalidate_locked(pool, dest_addr, dest_port);
 +  }
 +
-+  /* Use CSP's SFP to send the bundle with automatic fragmentation */
-+  int ret = csp_sfp_send(conn, bundle, (unsigned int) len, CSPCL_MAX_PAYLOAD, CSPCL_CSP_TIMEOUT_MS);
-+
-+  if (ret != CSP_ERR_NONE) {
-+    cspcl_pool_invalidate_locked(pool, dest_addr, dest_port);
++  if (conn_failed) {
++    (void) cspcl_pool_unlock(pool);
++    return CSPCL_ERR_CONNECTION;
 +  }
 +
 +  if (cspcl_pool_unlock(pool) != 0) {
 +    CSPCL_LOG("pool unlock failed after send");
 +  }
 +
++  if (ret == CSP_ERR_TIMEDOUT) {
++    return CSPCL_ERR_TIMEOUT;
++  }
 +  if (ret != CSP_ERR_NONE) {
 +    return CSPCL_ERR_CSP_SEND;
 +  }
@@ -1587,14 +1730,8 @@
 +  pthread_mutex_lock(&g_cspcl_global_lock);
 +#endif
 +
-+  /* Reuse the process-wide RX socket if it already exists. */
-+  if (g_cspcl_global_rx_socket != NULL) {
-+    if (g_cspcl_global_rx_port != cspcl->csp_port) {
-+#ifndef FREERTOS
-+      pthread_mutex_unlock(&g_cspcl_global_lock);
-+#endif
-+      return CSPCL_ERR_CSPINIT;
-+    }
++  /* Reuse the process-wide RX socket if it exists AND matches our port */
++  if (g_cspcl_global_rx_socket != NULL && g_cspcl_global_rx_port == cspcl->csp_port) {
 +    cspcl->rx_socket = g_cspcl_global_rx_socket;
 +#ifndef FREERTOS
 +    pthread_mutex_unlock(&g_cspcl_global_lock);
@@ -1602,22 +1739,21 @@
 +    return CSPCL_OK;
 +  }
 +
++  /* Unlock global lock - we're creating instance-specific socket */
++#ifndef FREERTOS
++  pthread_mutex_unlock(&g_cspcl_global_lock);
++#endif
++
 +  /* Create socket for connection-oriented mode */
 +  csp_socket_t *sock = csp_socket(CSPCL_CSP_SOCKET_OPTIONS);
 +  if (sock == NULL) {
-+#ifndef FREERTOS
-+    pthread_mutex_unlock(&g_cspcl_global_lock);
-+#endif
 +    return CSPCL_ERR_NO_MEMORY;
 +  }
 +
-+  /* Bind to BP port */
++  /* Bind to receiving port */
 +  int bind_result = csp_bind(sock, cspcl->csp_port);
 +  if (bind_result != CSP_ERR_NONE) {
 +    csp_close(sock);
-+#ifndef FREERTOS
-+    pthread_mutex_unlock(&g_cspcl_global_lock);
-+#endif
 +    return CSPCL_ERR_CSP_RECV;
 +  }
 +
@@ -1625,19 +1761,20 @@
 +  int listen_result = csp_listen(sock, 5);
 +  if (listen_result != CSP_ERR_NONE) {
 +    csp_close(sock);
-+#ifndef FREERTOS
-+    pthread_mutex_unlock(&g_cspcl_global_lock);
-+#endif
 +    return CSPCL_ERR_CSP_RECV;
 +  }
 +
-+  g_cspcl_global_rx_socket = sock;
-+  g_cspcl_global_rx_port = cspcl->csp_port;
 +  cspcl->rx_socket = sock;
 +
 +#ifndef FREERTOS
++  pthread_mutex_lock(&g_cspcl_global_lock);
++#endif
++  g_cspcl_global_rx_socket = sock;
++  g_cspcl_global_rx_port = cspcl->csp_port;
++#ifndef FREERTOS
 +  pthread_mutex_unlock(&g_cspcl_global_lock);
 +#endif
++
 +  return CSPCL_OK;
 +}
 +
@@ -1656,19 +1793,16 @@
 +  }
 +}
 +
-+cspcl_error_t cspcl_recv_bundle(cspcl_t *cspcl, uint8_t *bundle, size_t *len, uint8_t *src_addr,
++cspcl_error_t cspcl_accept_conn(cspcl_t *cspcl, csp_conn_t **conn, uint8_t *src_addr,
 +                                uint8_t *src_port, uint32_t timeout_ms)
 +{
-+  if (cspcl == NULL || bundle == NULL || len == NULL) {
++  if (cspcl == NULL || conn == NULL || src_addr == NULL || src_port == NULL) {
 +    return CSPCL_ERR_INVALID_PARAM;
 +  }
 +
 +  if (!cspcl->initialized) {
 +    return CSPCL_ERR_NOT_INITIALIZED;
 +  }
-+
-+  size_t max_len = *len;
-+  *len = 0;
 +
 +  if (cspcl->rx_socket == NULL) {
 +    cspcl_error_t err = cspcl_open_rx_socket(cspcl);
@@ -1677,25 +1811,36 @@
 +    }
 +  }
 +
-+  /* Accept incoming connection */
-+  csp_conn_t *conn = csp_accept((csp_socket_t *) cspcl->rx_socket,
-+                                timeout_ms > 0 ? timeout_ms : CSPCL_CSP_TIMEOUT_MS);
-+  if (conn == NULL) {
++  csp_conn_t *accepted_conn = csp_accept((csp_socket_t *) cspcl->rx_socket,
++                                         timeout_ms > 0 ? timeout_ms : CSPCL_CSP_TIMEOUT_MS);
++  if (accepted_conn == NULL) {
 +    return CSPCL_ERR_TIMEOUT;
 +  }
 +
-+  /* Get source address from connection */
-+  uint8_t pkt_src_addr = csp_conn_src(conn);
-+  uint8_t pkt_src_port = csp_conn_sport(conn);
++  *conn = accepted_conn;
++  *src_addr = csp_conn_src(accepted_conn);
++  *src_port = csp_conn_sport(accepted_conn);
++
++  return CSPCL_OK;
++}
++
++static cspcl_error_t cspcl_recv_from_conn_timeout(csp_conn_t *conn, uint8_t *bundle, size_t *len,
++                                                  uint8_t *src_addr, uint8_t *src_port,
++                                                  uint8_t pkt_src_addr, uint8_t pkt_src_port,
++                                                  uint32_t timeout_ms)
++{
++  if (conn == NULL || bundle == NULL || len == NULL) {
++    return CSPCL_ERR_INVALID_PARAM;
++  }
++
++  size_t max_len = *len;
++  *len = 0;
 +
 +  /* Use CSP's SFP to receive the bundle with automatic reassembly */
 +  void *data = NULL;
 +  int datasize = 0;
 +
-+  int ret = csp_sfp_recv(conn, &data, &datasize, CSPCL_SFP_TIMEOUT_MS);
-+
-+  /* Close connection */
-+  csp_close(conn);
++  int ret = csp_sfp_recv(conn, &data, &datasize, timeout_ms);
 +
 +  if (ret != CSP_ERR_NONE) {
 +    if (data != NULL) {
@@ -1731,7 +1876,179 @@
 +  /* Free SFP-allocated memory */
 +  csp_free(data);
 +
++  /* Confirm delivery to the sender. Best-effort: if this is lost, the
++   * sender's wait for it will time out and retry, which is an accepted
++   * trade-off rather than a reason to discard an already-received bundle. */
++  if (cspcl_send_ack(conn) != CSP_ERR_NONE) {
++    CSPCL_LOG("failed to send bundle-received ack");
++  }
++
 +  return CSPCL_OK;
++}
++
++cspcl_error_t cspcl_recv_bundle_from_conn(csp_conn_t *conn, uint8_t *bundle, size_t *len,
++                                          uint8_t *src_addr, uint8_t *src_port,
++                                          uint8_t pkt_src_addr, uint8_t pkt_src_port)
++{
++  return cspcl_recv_from_conn_timeout(conn, bundle, len, src_addr, src_port, pkt_src_addr,
++                                      pkt_src_port, CSPCL_SFP_TIMEOUT_MS);
++}
++
++/**
++ * @brief Store a newly accepted inbound connection in the RX table
++ *
++ * A peer that reconnects (same address and port) replaces its previous
++ * entry; the stale connection is closed. When the table is full the
++ * least-recently-active entry is evicted.
++ */
++static void cspcl_rx_table_store(cspcl_t *cspcl, csp_conn_t *conn, uint8_t src_addr,
++                                 uint8_t src_port)
++{
++  size_t slot = CSPCL_RX_CONN_TABLE_SIZE;
++
++  for (size_t i = 0; i < CSPCL_RX_CONN_TABLE_SIZE; i++) {
++    cspcl_rx_conn_entry_t *e = &cspcl->rx_conns[i];
++    if (e->used && e->src_addr == src_addr && e->src_port == src_port) {
++      /* Peer reconnected - its old connection is dead on their side */
++      if (e->conn != NULL && e->conn != conn) {
++        csp_close(e->conn);
++      }
++      slot = i;
++      break;
++    }
++    if (!e->used && slot == CSPCL_RX_CONN_TABLE_SIZE) {
++      slot = i;
++    }
++  }
++
++  if (slot == CSPCL_RX_CONN_TABLE_SIZE) {
++    /* Table full - evict least-recently-active entry */
++    slot = 0;
++    for (size_t i = 1; i < CSPCL_RX_CONN_TABLE_SIZE; i++) {
++      if (cspcl->rx_conns[i].last_active < cspcl->rx_conns[slot].last_active) {
++        slot = i;
++      }
++    }
++    if (cspcl->rx_conns[slot].conn != NULL) {
++      csp_close(cspcl->rx_conns[slot].conn);
++    }
++  }
++
++  cspcl->rx_conns[slot].used = true;
++  cspcl->rx_conns[slot].conn = conn;
++  cspcl->rx_conns[slot].src_addr = src_addr;
++  cspcl->rx_conns[slot].src_port = src_port;
++  cspcl->rx_conns[slot].last_active = ++cspcl->rx_tick;
++}
++
++cspcl_error_t cspcl_recv_bundle(cspcl_t *cspcl, uint8_t *bundle, size_t *len, uint8_t *src_addr,
++                                uint8_t *src_port, uint32_t timeout_ms)
++{
++  if (cspcl == NULL || bundle == NULL || len == NULL) {
++    return CSPCL_ERR_INVALID_PARAM;
++  }
++
++  if (!cspcl->initialized) {
++    return CSPCL_ERR_NOT_INITIALIZED;
++  }
++
++  if (timeout_ms == 0) {
++    timeout_ms = CSPCL_CSP_TIMEOUT_MS;
++  }
++
++  size_t max_len = *len;
++
++  size_t live = 0;
++  for (size_t i = 0; i < CSPCL_RX_CONN_TABLE_SIZE; i++) {
++    if (cspcl->rx_conns[i].used) {
++      live++;
++    }
++  }
++
++  /* Poll for new inbound connections. With live connections to service we
++   * only poll briefly; otherwise accept() gets the whole timeout. Senders
++   * pool and reuse their outbound connection, so most bundles arrive on an
++   * already-accepted connection rather than a new one. */
++  uint32_t accept_timeout = timeout_ms;
++  if (live > 0) {
++    accept_timeout =
++        timeout_ms / 2 < CSPCL_RX_ACCEPT_POLL_MS ? timeout_ms / 2 : CSPCL_RX_ACCEPT_POLL_MS;
++  }
++
++  csp_conn_t *new_conn = NULL;
++  uint8_t new_src_addr = 0;
++  uint8_t new_src_port = 0;
++  cspcl_error_t accept_err =
++      cspcl_accept_conn(cspcl, &new_conn, &new_src_addr, &new_src_port, accept_timeout);
++  if (accept_err == CSPCL_OK) {
++    cspcl_rx_table_store(cspcl, new_conn, new_src_addr, new_src_port);
++    live = 0;
++    for (size_t i = 0; i < CSPCL_RX_CONN_TABLE_SIZE; i++) {
++      if (cspcl->rx_conns[i].used) {
++        live++;
++      }
++    }
++  } else if (accept_err != CSPCL_ERR_TIMEOUT) {
++    *len = 0;
++    return accept_err;
++  }
++
++  if (live == 0) {
++    *len = 0;
++    return CSPCL_ERR_TIMEOUT;
++  }
++
++  /* Poll live connections for a bundle, splitting the remaining time
++   * between them. Round-robin start index keeps one busy peer from
++   * starving the others. */
++  uint32_t read_timeout = (timeout_ms - accept_timeout) / (uint32_t) live;
++  if (read_timeout < 50) {
++    read_timeout = 50;
++  }
++
++  size_t start = cspcl->rx_tick % CSPCL_RX_CONN_TABLE_SIZE;
++  for (size_t n = 0; n < CSPCL_RX_CONN_TABLE_SIZE; n++) {
++    size_t i = (start + n) % CSPCL_RX_CONN_TABLE_SIZE;
++    cspcl_rx_conn_entry_t *e = &cspcl->rx_conns[i];
++    if (!e->used) {
++      continue;
++    }
++
++    *len = max_len;
++    cspcl_error_t recv_err = cspcl_recv_from_conn_timeout(e->conn, bundle, len, src_addr, src_port,
++                                                          e->src_addr, e->src_port, read_timeout);
++
++    if (recv_err == CSPCL_OK) {
++      e->last_active = ++cspcl->rx_tick;
++      return CSPCL_OK;
++    }
++
++    if (recv_err != CSPCL_ERR_TIMEOUT) {
++      /* Connection is broken - drop it; the peer will reconnect */
++      csp_close(e->conn);
++      e->conn = NULL;
++      e->used = false;
++    }
++  }
++
++  *len = 0;
++  return CSPCL_ERR_TIMEOUT;
++}
++
++/**
++ * @brief Debug: Dump connection pool status
++ */
++static void cspcl_debug_pool_status(cspcl_conn_pool_t *pool)
++{
++  if (pool == NULL || !pool->initialized) {
++    return;
++  }
++
++  for (size_t i = 0; i < CSPCL_CONN_POOL_SIZE; i++) {
++    if (pool->entries[i].used && pool->entries[i].conn != NULL) {
++      /* Pool entry exists: addr=%u, port=%u */
++    }
++  }
 +}
 +
 +void cspcl_conn_pool_get_stats(const cspcl_conn_pool_t *pool, cspcl_conn_pool_stats_t *stats)
@@ -1801,6 +2118,258 @@
 +}
 +
 +/*===========================================================================*/
++/* PHASE 2: Unified Address Parsing Implementation                           */
++/*===========================================================================*/
++
++uint8_t cspcl_parse_address(const char *addr_string, uint8_t *dest_port)
++{
++  if (!addr_string) {
++    return 0;
++  }
++
++  /* Try CSP scheme first: "csp:X" or "csp:X,Y" */
++  if (strncmp(addr_string, "csp:", 4) == 0) {
++    const char *addr_str = addr_string + 4;
++    int addr = atoi(addr_str);
++    if (addr >= 0 && addr <= 255) {
++      if (dest_port) {
++        uint8_t port = cspcl_parse_port(addr_string);
++        *dest_port = port;
++      }
++      return (uint8_t) addr;
++    }
++  }
++
++  /* Try IPN scheme: "ipn:X.Y" */
++  if (strncmp(addr_string, "ipn:", 4) == 0) {
++    int node = 0;
++    if (sscanf(addr_string + 4, "%d", &node) == 1 && node >= 0 && node <= 255) {
++      if (dest_port)
++        *dest_port = CSPCL_PORT_BP;
++      return (uint8_t) node;
++    }
++  }
++
++  /* Try DTN schemes */
++  if (strncmp(addr_string, "dtn://node", 10) == 0) {
++    int node = 0;
++    if (sscanf(addr_string + 10, "%d", &node) == 1 && node >= 0 && node <= 255) {
++      if (dest_port)
++        *dest_port = CSPCL_PORT_BP;
++      return (uint8_t) node;
++    }
++  }
++
++  if (strncmp(addr_string, "dtn://", 6) == 0) {
++    const char *name = addr_string + 6;
++    if (name[0] != '\0' && name[1] == '.' && strncmp(name + 2, "dtn/", 4) == 0) {
++      char label = name[0];
++      if (label >= 'a' && label <= 'z') {
++        if (dest_port)
++          *dest_port = CSPCL_PORT_BP;
++        return (uint8_t) (label - 'a' + 1);
++      }
++    }
++  }
++
++  /* Try bare integer: "42" */
++  int addr = atoi(addr_string);
++  if (addr >= 0 && addr <= 255) {
++    if (dest_port)
++      *dest_port = CSPCL_PORT_BP;
++    return (uint8_t) addr;
++  }
++
++  return 0;
++}
++
++bool cspcl_is_valid_address_string(const char *addr_string, uint8_t parsed_addr)
++{
++  if (parsed_addr != 0 || !addr_string) {
++    return parsed_addr != 0;
++  }
++
++  /* Check if string is literally "0" or "csp:0" or "ipn:0.X" etc */
++  if (strcmp(addr_string, "0") == 0)
++    return true;
++  if (strcmp(addr_string, "csp:0") == 0)
++    return true;
++  if (strncmp(addr_string, "ipn:0.", 6) == 0)
++    return true;
++  if (strcmp(addr_string, "dtn://node0") == 0)
++    return true;
++
++  return false;
++}
++
++uint8_t cspcl_parse_port(const char *addr_string)
++{
++  if (!addr_string) {
++    return CSPCL_PORT_BP;
++  }
++
++  if (strncmp(addr_string, "csp:", 4) == 0) {
++    const char *comma = strchr(addr_string + 4, ',');
++    if (comma) {
++      int port = atoi(comma + 1);
++      if (port >= 0 && port <= 31) {
++        return (uint8_t) port;
++      }
++    }
++  }
++
++  return CSPCL_PORT_BP;
++}
++
++cspcl_error_t cspcl_identify_address_scheme(const char *addr_string, char *scheme_out,
++                                            size_t scheme_len)
++{
++  if (!addr_string || !scheme_out || scheme_len < 5) {
++    return CSPCL_ERR_INVALID_PARAM;
++  }
++
++  if (strncmp(addr_string, "ipn:", 4) == 0) {
++    strncpy(scheme_out, "ipn", scheme_len - 1);
++    scheme_out[scheme_len - 1] = '\0';
++    return CSPCL_OK;
++  }
++
++  if (strncmp(addr_string, "dtn://", 6) == 0) {
++    strncpy(scheme_out, "dtn", scheme_len - 1);
++    scheme_out[scheme_len - 1] = '\0';
++    return CSPCL_OK;
++  }
++
++  if (strncmp(addr_string, "csp:", 4) == 0) {
++    strncpy(scheme_out, "csp", scheme_len - 1);
++    scheme_out[scheme_len - 1] = '\0';
++    return CSPCL_OK;
++  }
++
++  /* Check if it's a bare integer */
++  if (addr_string[0] >= '0' && addr_string[0] <= '9') {
++    strncpy(scheme_out, "bare", scheme_len - 1);
++    scheme_out[scheme_len - 1] = '\0';
++    return CSPCL_OK;
++  }
++
++  return CSPCL_ERR_INVALID_PARAM;
++}
++
++/*===========================================================================*/
++/* PHASE 3: Error Categorization Implementation                              */
++/*===========================================================================*/
++
++cspcl_error_category_t cspcl_categorize_error(cspcl_error_t err)
++{
++  switch (err) {
++  case CSPCL_OK:
++    return CSPCL_ERRCATEGORY_OK;
++
++  case CSPCL_ERR_INVALID_PARAM:
++    return CSPCL_ERRCATEGORY_PARAM;
++
++  case CSPCL_ERR_NO_MEMORY:
++  case CSPCL_ERR_POOL_FULL:
++    return CSPCL_ERRCATEGORY_RESOURCE;
++
++  case CSPCL_ERR_TIMEOUT:
++    return CSPCL_ERRCATEGORY_TIMEOUT;
++
++  case CSPCL_ERR_CSP_SEND:
++  case CSPCL_ERR_CSP_RECV:
++  case CSPCL_ERR_CONNECTION:
++  case CSPCL_ERR_SFP:
++    return CSPCL_ERRCATEGORY_CSP;
++
++  case CSPCL_ERR_BUNDLE_TOO_LARGE:
++  case CSPCL_ERR_NOT_INITIALIZED:
++  case CSPCL_ERR_CSPINIT:
++  case CSPCL_ERR_CSP_STACK_INIT:
++  case CSPCL_ERR_CSP_ZMQHUB_INIT:
++  case CSPCL_ERR_CSP_CAN_INIT:
++  case CSPCL_ERR_CSP_CAN_NOT_SUPPORTED:
++  case CSPCL_ERR_CSP_ROUTER:
++  default:
++    return CSPCL_ERRCATEGORY_FATAL;
++  }
++}
++
++bool cspcl_error_is_retryable(cspcl_error_t err)
++{
++  return err == CSPCL_ERR_TIMEOUT || err == CSPCL_ERR_POOL_FULL || err == CSPCL_ERR_CSP_SEND ||
++         err == CSPCL_ERR_CSP_RECV;
++}
++
++/*===========================================================================*/
++/* PHASE 4: Interface Parsing Implementation                                 */
++/*===========================================================================*/
++
++cspcl_error_t cspcl_parse_interface_spec(const char *iface_spec, cspcl_t *cspcl)
++{
++  if (!iface_spec || !cspcl) {
++    return CSPCL_ERR_INVALID_PARAM;
++  }
++
++  if (strncmp(iface_spec, "zmqhub:", 7) == 0) {
++    cspcl->iface_type = CSP_IFACE_ZMQHUB;
++    strncpy(cspcl->zmqhub_addr, iface_spec + 7, CSPCL_IFACE_PARAM_MAX - 1);
++    cspcl->zmqhub_addr[CSPCL_IFACE_PARAM_MAX - 1] = '\0';
++    return CSPCL_OK;
++  }
++
++  if (strcmp(iface_spec, "zmqhub") == 0) {
++    cspcl->iface_type = CSP_IFACE_ZMQHUB;
++    strncpy(cspcl->zmqhub_addr, CSPCL_ZMQHUB_ADDR_DEFAULT, CSPCL_IFACE_PARAM_MAX - 1);
++    cspcl->zmqhub_addr[CSPCL_IFACE_PARAM_MAX - 1] = '\0';
++    return CSPCL_OK;
++  }
++
++  if (strncmp(iface_spec, "can:", 4) == 0) {
++    cspcl->iface_type = CSP_IFACE_CAN;
++    strncpy(cspcl->can_iface, iface_spec + 4, CSPCL_IFACE_PARAM_MAX - 1);
++    cspcl->can_iface[CSPCL_IFACE_PARAM_MAX - 1] = '\0';
++    return CSPCL_OK;
++  }
++
++  if (strcmp(iface_spec, "can") == 0) {
++    cspcl->iface_type = CSP_IFACE_CAN;
++    strncpy(cspcl->can_iface, CSPCL_CAN_IFACE_DEFAULT, CSPCL_IFACE_PARAM_MAX - 1);
++    cspcl->can_iface[CSPCL_IFACE_PARAM_MAX - 1] = '\0';
++    return CSPCL_OK;
++  }
++
++  if (strcmp(iface_spec, "loopback") == 0) {
++    cspcl->iface_type = CSP_IFACE_LOOPBACK;
++    return CSPCL_OK;
++  }
++
++  return CSPCL_ERR_INVALID_PARAM;
++}
++
++cspcl_error_t cspcl_interface_type_to_string(const cspcl_t *cspcl, char *buf, size_t len)
++{
++  if (!cspcl || !buf || len < 10) {
++    return CSPCL_ERR_INVALID_PARAM;
++  }
++
++  switch (cspcl->iface_type) {
++  case CSP_IFACE_ZMQHUB:
++    snprintf(buf, len, "zmqhub:%s", cspcl->zmqhub_addr);
++    return CSPCL_OK;
++  case CSP_IFACE_CAN:
++    snprintf(buf, len, "can:%s", cspcl->can_iface);
++    return CSPCL_OK;
++  case CSP_IFACE_LOOPBACK:
++    snprintf(buf, len, "loopback");
++    return CSPCL_OK;
++  default:
++    snprintf(buf, len, "unknown");
++    return CSPCL_ERR_INVALID_PARAM;
++  }
++}
++
++/*===========================================================================*/
 +/* Utility Functions                                                          */
 +/*===========================================================================*/
 +
@@ -1845,9 +2414,12 @@
 +    return "Unknown error";
 +  }
 +}
---- /dev/null	2026-06-12 15:59:13.144216426 +0200
-+++ b/external/cspcl/cspcl.h	2026-06-14 14:17:19.728964883 +0200
-@@ -0,0 +1,320 @@
+diff --git a/external/cspcl/cspcl.h b/external/cspcl/cspcl.h
+new file mode 100644
+index 0000000..0b3aa31
+--- /dev/null
++++ b/external/cspcl/cspcl.h
+@@ -0,0 +1,531 @@
 +/**
 + * @file cspcl.h
 + * @brief CSPCL - CubeSat Space Protocol Convergence Layer for Bundle Protocol
@@ -1918,6 +2490,16 @@
 +
 +/** Maximum number of cached outbound CSP connections */
 +#define CSPCL_CONN_POOL_SIZE 16
++
++/** Maximum number of live inbound CSP connections kept open for reading.
++ *  Senders pool their outbound connections and reuse them for multiple
++ *  bundles, so the receiver must keep accepted connections open and keep
++ *  reading from them instead of closing after the first bundle. */
++#define CSPCL_RX_CONN_TABLE_SIZE 8
++
++/** How long cspcl_recv_bundle() polls csp_accept() for new inbound
++ *  connections when it already has live connections to read from */
++#define CSPCL_RX_ACCEPT_POLL_MS 100
 +
 +/** CSP connection timeout in milliseconds */
 +#define CSPCL_CSP_TIMEOUT_MS 1000
@@ -1994,6 +2576,20 @@
 +  cspcl_conn_pool_stats_t stats; /**< Pool operation counters */
 +} cspcl_conn_pool_t;
 +
++/**
++ * @brief Live inbound connection kept open across cspcl_recv_bundle() calls
++ *
++ * Senders reuse pooled connections for multiple bundles, so accepted
++ * connections must stay open and be polled for further bundles.
++ */
++typedef struct {
++  bool used;
++  csp_conn_t *conn;
++  uint8_t src_addr;
++  uint8_t src_port;
++  uint32_t last_active; /**< Monotonic tick at last received bundle, for LRU eviction */
++} cspcl_rx_conn_entry_t;
++
 +/*===========================================================================*/
 +/* CSPCL Instance                                                             */
 +/*===========================================================================*/
@@ -2023,6 +2619,10 @@
 +
 +  /* Internal outbound CSP connection pool */
 +  cspcl_conn_pool_t conn_pool;
++
++  /* Live inbound connections being polled for bundles */
++  cspcl_rx_conn_entry_t rx_conns[CSPCL_RX_CONN_TABLE_SIZE];
++  uint32_t rx_tick; /**< Monotonic counter for inbound LRU eviction */
 +
 +  csp_iface_t *active_iface;
 +} cspcl_t;
@@ -2061,6 +2661,21 @@
 + * @param pool      Pointer to pool instance
 + */
 +void cspcl_conn_pool_cleanup(cspcl_conn_pool_t *pool);
++
++/**
++ * @brief Add an existing CSP connection to the connection pool
++ *
++ * The pool takes ownership of the connection pointer. The connection will be
++ * closed when the entry is evicted, invalidated, or the pool is cleaned up.
++ *
++ * @param pool      Pointer to initialized pool instance
++ * @param dest_addr Remote CSP address associated with the connection
++ * @param dest_port Remote CSP port associated with the connection
++ * @param conn      Existing CSP connection to store
++ * @return CSPCL_OK on success, error code otherwise
++ */
++cspcl_error_t cspcl_conn_pool_add(cspcl_conn_pool_t *pool, uint8_t dest_addr, uint8_t dest_port,
++                                  csp_conn_t *conn);
 +
 +/**
 + * @brief Read pool statistics counters
@@ -2108,6 +2723,45 @@
 + */
 +cspcl_error_t cspcl_recv_bundle(cspcl_t *cspcl, uint8_t *bundle, size_t *len, uint8_t *src_addr,
 +                                uint8_t *src_port, uint32_t timeout_ms);
++
++/**
++ * @brief Accept an inbound CSP connection for bundle traffic
++ *
++ * This function ensures the receive socket is open, accepts one incoming
++ * connection, and returns the accepted connection plus its source address and
++ * source port.
++ *
++ * The caller owns the returned connection unless it is later passed to another
++ * CSPCL API that documents an ownership transfer.
++ *
++ * @param cspcl      Pointer to initialized CSPCL instance
++ * @param conn       Output pointer for the accepted CSP connection
++ * @param src_addr   Output source CSP address
++ * @param src_port   Output source CSP port
++ * @param timeout_ms Timeout in milliseconds (0 = internal default)
++ * @return CSPCL_OK on success, error code otherwise
++ */
++cspcl_error_t cspcl_accept_conn(cspcl_t *cspcl, csp_conn_t **conn, uint8_t *src_addr,
++                                uint8_t *src_port, uint32_t timeout_ms);
++
++/**
++ * @brief Receive a BP7 bundle from an accepted CSP connection
++ *
++ * This function uses SFP to reassemble one complete bundle from an existing
++ * connection and copies it into the caller-provided buffer.
++ *
++ * @param conn         Accepted CSP connection
++ * @param bundle       Buffer for bundle data
++ * @param len          Pointer to buffer size (in) / received size (out)
++ * @param src_addr     Pointer to store source CSP address (can be NULL)
++ * @param src_port     Pointer to store source CSP port (can be NULL)
++ * @param pkt_src_addr Source CSP address associated with the connection
++ * @param pkt_src_port Source CSP port associated with the connection
++ * @return CSPCL_OK on success, error code otherwise
++ */
++cspcl_error_t cspcl_recv_bundle_from_conn(csp_conn_t *conn, uint8_t *bundle, size_t *len,
++                                          uint8_t *src_addr, uint8_t *src_port,
++                                          uint8_t pkt_src_addr, uint8_t pkt_src_port);
 +
 +/**
 + * @brief Open and bind server socket for incoming connections
@@ -2163,43 +2817,164 @@
 + */
 +const char *cspcl_strerror(cspcl_error_t err);
 +
++/*===========================================================================*/
++/* PHASE 2: Unified Address Parsing API                                      */
++/*===========================================================================*/
++
++/**
++ * @brief Parse CSP address from string in multiple formats
++ *
++ * Supports formats:
++ *   - IPN scheme: "ipn:X.Y" → address X
++ *   - DTN scheme: "dtn://nodeX" or "dtn://a.dtn/..." → address
++ *   - CSP scheme: "csp:X" or "csp:X,Y" → address X (port extracted separately)
++ *   - Bare integer: "42" → address 42
++ *
++ * @param addr_string  Input address string
++ * @param dest_port    Output CSP port (may be NULL; defaults to CSPCL_PORT_BP)
++ * @return CSP address (0-255), or 0 on parse error
++ *
++ * @note Returns 0 on error, which is also a valid address. Use with caution
++ *       for address 0. Check the string first with cspcl_is_valid_address_string().
++ */
++uint8_t cspcl_parse_address(const char *addr_string, uint8_t *dest_port);
++
++/**
++ * @brief Validate that an address string parses to a valid address
++ *
++ * Distinguishes between "0" (valid) and unparseable strings.
++ *
++ * @param addr_string   Input address string
++ * @param parsed_addr   Address returned by cspcl_parse_address()
++ * @return true if string is valid, false otherwise
++ */
++bool cspcl_is_valid_address_string(const char *addr_string, uint8_t parsed_addr);
++
++/**
++ * @brief Extract CSP port from address string (if present)
++ *
++ * Supports formats:
++ *   - "csp:X,Y" → port Y
++ *   - Other formats → CSPCL_PORT_BP (default)
++ *
++ * @param addr_string  Input address string
++ * @return CSP port (0-31 for CSP v1.6), or CSPCL_PORT_BP if not specified
++ */
++uint8_t cspcl_parse_port(const char *addr_string);
++
++/**
++ * @brief Identify the addressing scheme used in a string
++ *
++ * Useful for logging and debugging integration-specific address issues.
++ *
++ * @param addr_string  Input address string
++ * @param scheme_out   Output scheme name (e.g., "ipn", "dtn", "csp", "bare")
++ * @param scheme_len   Buffer length for scheme_out
++ * @return CSPCL_OK on success, error code otherwise
++ */
++cspcl_error_t cspcl_identify_address_scheme(const char *addr_string, char *scheme_out,
++                                            size_t scheme_len);
++
++/*===========================================================================*/
++/* PHASE 3: Error Categorization API                                         */
++/*===========================================================================*/
++
++/**
++ * @brief Error category enumeration
++ *
++ * Groups detailed error codes into broader categories for integration-specific
++ * handling without losing information.
++ */
++typedef enum {
++  CSPCL_ERRCATEGORY_OK = 0,   /** No error */
++  CSPCL_ERRCATEGORY_PARAM,    /** Invalid parameter (caller error) */
++  CSPCL_ERRCATEGORY_RESOURCE, /** Out of memory or resource exhausted */
++  CSPCL_ERRCATEGORY_TIMEOUT,  /** Operation timed out (retryable) */
++  CSPCL_ERRCATEGORY_CSP,      /** CSP/transport layer error */
++  CSPCL_ERRCATEGORY_FATAL,    /** Unrecoverable error */
++} cspcl_error_category_t;
++
++/**
++ * @brief Categorize CSPCL error for integration-specific handling
++ *
++ * Maps detailed CSPCL errors to broader categories that integrations
++ * can map to their own error schemes without losing information.
++ *
++ * @param err CSPCL error code
++ * @return Error category (see cspcl_error_category_t)
++ */
++cspcl_error_category_t cspcl_categorize_error(cspcl_error_t err);
++
++/**
++ * @brief Check if error is retryable
++ *
++ * Some errors (timeout, pool full) may succeed on retry.
++ * Others (invalid param, not initialized) will always fail.
++ *
++ * @param err CSPCL error code
++ * @return true if operation should be retried, false if it will always fail
++ */
++bool cspcl_error_is_retryable(cspcl_error_t err);
++
++/*===========================================================================*/
++/* PHASE 4: Interface Parsing API                                            */
++/*===========================================================================*/
++
++/**
++ * @brief Parse and validate interface specification string
++ *
++ * Supports formats:
++ *   - "zmqhub" → use default localhost
++ *   - "zmqhub:hostname" → use custom host
++ *   - "can" → use default CAN interface
++ *   - "can:vcan0" → use specific CAN interface
++ *   - "loopback" → loopback mode
++ *
++ * @param iface_spec      Interface specification string
++ * @param cspcl           CSPCL instance to configure (modified in-place)
++ * @return CSPCL_OK on success, error code otherwise
++ */
++cspcl_error_t cspcl_parse_interface_spec(const char *iface_spec, cspcl_t *cspcl);
++
++/**
++ * @brief Get current interface type as human-readable string
++ *
++ * @param cspcl CSPCL instance
++ * @param buf   Output buffer
++ * @param len   Buffer length
++ * @return CSPCL_OK on success, error code otherwise
++ */
++cspcl_error_t cspcl_interface_type_to_string(const cspcl_t *cspcl, char *buf, size_t len);
++
 +#ifdef __cplusplus
 +}
 +#endif
 +
 +#endif /* CSPCL_H */
---- /dev/null	2026-06-12 15:59:13.144216426 +0200
-+++ b/external/cspcl/cspcl_config.h	2026-06-14 14:17:19.730878278 +0200
-@@ -0,0 +1,108 @@
+diff --git a/external/cspcl/cspcl_config.h b/external/cspcl/cspcl_config.h
+new file mode 100644
+index 0000000..487b3ef
+--- /dev/null
++++ b/external/cspcl/cspcl_config.h
+@@ -0,0 +1,241 @@
++// SPDX-License-Identifier: BSD-3-Clause OR Apache-2.0
 +/**
 + * @file cspcl_config.h
-+ * @brief CSPCL Configuration Options
++ * @brief CSPCL Configuration Constants
 + *
-+ * User-configurable options for the CSPCL convergence layer.
-+ * Copy this file and modify values as needed for your platform.
++ * Central configuration for CSPCL library and integrations.
++ * All integration-specific and core configuration values are defined here
++ * to ensure consistency across implementations.
++ *
++ * @version 1.0
 + */
 +
 +#ifndef CSPCL_CONFIG_H
 +#define CSPCL_CONFIG_H
 +
-+/*===========================================================================*/
-+/* Platform Selection                                                         */
-+/*===========================================================================*/
-+
-+/**
-+ * Select the platform/OS for time functions and threading.
-+ * Uncomment ONE of the following:
-+ */
-+
-+/* Linux/POSIX platform */
-+#define CSPCL_PLATFORM_POSIX
-+
-+/* FreeRTOS platform */
-+/* #define CSPCL_PLATFORM_FREERTOS */
-+
-+/*===========================================================================*/
++/* ========================================================================== */
 +/* CSP Configuration                                                          */
-+/*===========================================================================*/
++/* ========================================================================== */
 +
 +/** CSP port dedicated to Bundle Protocol traffic */
 +#ifndef CSPCL_PORT_BP
@@ -2221,17 +2996,11 @@
 +#define CSPCL_CSP_SOCKET_OPTIONS CSP_SO_RDPREQ
 +#endif
 +
-+/*===========================================================================*/
++/* ========================================================================== */
 +/* Fragmentation Configuration                                                */
-+/*===========================================================================*/
++/* ========================================================================== */
 +
-+/**
-+ * Maximum CSP MTU size
-+ * Typical values:
-+ *   - CAN: 256 bytes (8 bytes per CAN frame, fragmented by CSP)
-+ *   - UART: 256 bytes
-+ *   - TCP/IP: 1400 bytes
-+ */
++/** Maximum CSP MTU size */
 +#ifndef CSPCL_CSP_MTU
 +#define CSPCL_CSP_MTU 256
 +#endif
@@ -2246,36 +3015,186 @@
 +#define CSPCL_SFP_HEADER_SIZE 8
 +#endif
 +
++/** CSP RDP header size */
++#ifndef CSPCL_CSP_RDP_HEADER_SIZE
++#define CSPCL_CSP_RDP_HEADER_SIZE 5
++#endif
++
++/** Maximum user-data bytes per SFP fragment */
++#ifndef CSPCL_MAX_PAYLOAD
++#define CSPCL_MAX_PAYLOAD (CSPCL_CSP_MTU - CSPCL_SFP_HEADER_SIZE - CSPCL_CSP_RDP_HEADER_SIZE)
++#endif
++
 +/** CSP SFP receive timeout in milliseconds */
 +#ifndef CSPCL_SFP_TIMEOUT_MS
 +#define CSPCL_SFP_TIMEOUT_MS 5000
 +#endif
 +
-+/*===========================================================================*/
-+/* Debug Configuration                                                        */
-+/*===========================================================================*/
++/** Time to wait for the receiver's application-level "bundle received" ack
++ *  after a send. csp_sfp_send() only reports that data was queued locally,
++ *  so without this wait a bundle sent to a dead peer is reported as
++ *  delivered even though it never arrives. */
++#ifndef CSPCL_ACK_TIMEOUT_MS
++#define CSPCL_ACK_TIMEOUT_MS 5000
++#endif
 +
-+/** Enable debug output */
-+/* #define CSPCL_DEBUG */
++/** Marker byte cspcl puts in the application-level ack packet it sends back
++ *  after successfully reassembling a bundle. The value is not required to
++ *  match on the sending side (any packet arriving on the connection at that
++ *  point in the protocol is treated as the ack); this only exists to make
++ *  ack traffic recognizable in traces/dumps. */
++#ifndef CSPCL_ACK_MAGIC
++#define CSPCL_ACK_MAGIC 0xCA
++#endif
 +
-+/** Enable verbose debug output */
-+/* #define CSPCL_DEBUG_VERBOSE */
++/* ========================================================================== */
++/* Logging Configuration                                                      */
++/* ========================================================================== */
 +
-+#ifdef CSPCL_DEBUG
-+#include <stdio.h>
-+#define CSPCL_LOG(fmt, ...) printf("[CSPCL] " fmt "\n", ##__VA_ARGS__)
-+#define CSPCL_DEBUG(fmt, ...) printf("[CSPCL DEBUG] " fmt "\n", ##__VA_ARGS__)
-+#define CSPCL_WARN(fmt, ...) printf("[CSPCL WARN] " fmt "\n", ##__VA_ARGS__)
-+#else
-+#define CSPCL_LOG(fmt, ...)
++/** Debug logging macro - define to enable debug output */
++#ifndef CSPCL_DEBUG
 +#define CSPCL_DEBUG(fmt, ...)
++#endif
++
++/** Info logging macro */
++#ifndef CSPCL_LOG
++#define CSPCL_LOG(fmt, ...)
++#endif
++
++/** Warning logging macro */
++#ifndef CSPCL_WARN
 +#define CSPCL_WARN(fmt, ...)
 +#endif
 +
-+#ifdef CSPCL_DEBUG_VERBOSE
-+#define CSPCL_LOG_V(fmt, ...) printf("[CSPCL] " fmt "\n", ##__VA_ARGS__)
-+#else
-+#define CSPCL_LOG_V(fmt, ...)
++/* ========================================================================== */
++/* Connection Pool Configuration                                              */
++/* ========================================================================== */
++
++/** Maximum number of cached outbound CSP connections */
++#ifndef CSPCL_CONN_POOL_SIZE
++#define CSPCL_CONN_POOL_SIZE 16
++#endif
++
++/** Maximum number of live inbound CSP connections kept open for reading.
++ *  Senders pool their outbound connections and reuse them for multiple
++ *  bundles, so the receiver must keep accepted connections open and keep
++ *  reading from them instead of closing after the first bundle. */
++#ifndef CSPCL_RX_CONN_TABLE_SIZE
++#define CSPCL_RX_CONN_TABLE_SIZE 8
++#endif
++
++/** How long cspcl_recv_bundle() polls csp_accept() for new inbound
++ *  connections when it already has live connections to read from */
++#ifndef CSPCL_RX_ACCEPT_POLL_MS
++#define CSPCL_RX_ACCEPT_POLL_MS 100
++#endif
++
++/* ========================================================================== */
++/* Buffer Management (for integrations)                                       */
++/* ========================================================================== */
++
++/** Standard RX buffer size (bytes) - used by all integrations
++ *  Can be overridden at compile time: -DCSPCL_RX_BUFFER_SIZE=131072 */
++#ifndef CSPCL_RX_BUFFER_SIZE
++#define CSPCL_RX_BUFFER_SIZE 65536
++#endif
++
++/** Standard TX buffer size (bytes) - used by all integrations
++ *  Can be overridden at compile time: -DCSPCL_TX_BUFFER_SIZE=131072 */
++#ifndef CSPCL_TX_BUFFER_SIZE
++#define CSPCL_TX_BUFFER_SIZE 65536
++#endif
++
++/** Chunk size for streaming operations (e.g., Unibo integration)
++ *  Used when reading/writing bundles in fixed-size chunks */
++#ifndef CSPCL_STREAM_CHUNK_SIZE
++#define CSPCL_STREAM_CHUNK_SIZE 4096
++#endif
++
++/* ========================================================================== */
++/* Connection & Link Management                                               */
++/* ========================================================================== */
++
++/** Maximum concurrent links/peers managed by integrations */
++#ifndef CSPCL_MAX_LINKS
++#define CSPCL_MAX_LINKS 16
++#endif
++
++/** CSP socket receive timeout (milliseconds) */
++#ifndef CSPCL_SOCKET_TIMEOUT_MS
++#define CSPCL_SOCKET_TIMEOUT_MS 1000
++#endif
++
++/* ========================================================================== */
++/* Interface Defaults                                                          */
++/* ========================================================================== */
++
++/** Default ZMQHUB server address */
++#ifndef CSPCL_ZMQHUB_ADDR_DEFAULT
++#define CSPCL_ZMQHUB_ADDR_DEFAULT "localhost"
++#endif
++
++/** Default CAN interface name */
++#ifndef CSPCL_CAN_IFACE_DEFAULT
++#define CSPCL_CAN_IFACE_DEFAULT "vcan0"
++#endif
++
++/** Maximum length for interface parameters (host, device name, etc.) */
++#ifndef CSPCL_IFACE_PARAM_MAX
++#define CSPCL_IFACE_PARAM_MAX 64
++#endif
++
++/* ========================================================================== */
++/* CSP Stack Configuration                                                    */
++/* ========================================================================== */
++
++/** CSP buffer count (core library global setting) */
++#ifndef CSPCL_CSP_BUFFERS
++#define CSPCL_CSP_BUFFERS 100
++#endif
++
++/** CSP buffer data size (bytes) - must match CSPCL_CSP_MTU */
++#ifndef CSPCL_CSP_BUFFER_DATA_SIZE
++#define CSPCL_CSP_BUFFER_DATA_SIZE 256
++#endif
++
++/** CSP connection queue length */
++#ifndef CSPCL_CSP_CONN_QUEUE_LENGTH
++#define CSPCL_CSP_CONN_QUEUE_LENGTH 100
++#endif
++
++/** CSP FIFO length */
++#ifndef CSPCL_CSP_FIFO_LENGTH
++#define CSPCL_CSP_FIFO_LENGTH 25
++#endif
++
++/** CSP maximum port to bind (0-31 for CSP v1.6) */
++#ifndef CSPCL_CSP_PORT_MAX_BIND
++#define CSPCL_CSP_PORT_MAX_BIND 31
++#endif
++
++/** CSP RDP maximum window size */
++#ifndef CSPCL_CSP_RDP_MAX_WINDOW
++#define CSPCL_CSP_RDP_MAX_WINDOW 20
++#endif
++
++/* ========================================================================== */
++/* Runtime Defaults                                                            */
++/* ========================================================================== */
++
++/** Default CLA name for integrations */
++#ifndef CSPCL_CLA_NAME_DEFAULT
++#define CSPCL_CLA_NAME_DEFAULT "csp"
++#endif
++
++/** CSP model identification string */
++#ifndef CSPCL_CSP_MODEL
++#define CSPCL_CSP_MODEL "csp-cla"
++#endif
++
++/** CSP model revision */
++#ifndef CSPCL_CSP_REVISION
++#define CSPCL_CSP_REVISION "1.0"
 +#endif
 +
 +#endif /* CSPCL_CONFIG_H */

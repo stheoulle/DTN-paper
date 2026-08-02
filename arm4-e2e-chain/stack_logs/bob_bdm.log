@@ -1,0 +1,18 @@
+2026-08-02 18:50:50,351 INFO: Loading contact plan '../demo/alice.cp' with router 'VolCgrHybridParenting'.
+2026-08-02 18:50:50,352 DEBUG: Nodes in contact plan: ['unibo', 'hardy', 'bob', 'alice']
+2026-08-02 18:50:50,352 DEBUG: Mapped 'dtn://bob.dtn/' <-> 'bob' (A-SABR id=3)
+2026-08-02 18:50:50,352 DEBUG: Mapped 'dtn://hardy.dtn/' <-> 'hardy' (A-SABR id=2)
+2026-08-02 18:50:50,352 DEBUG: Mapped 'dtn://unibo.dtn/' <-> 'unibo' (A-SABR id=1)
+2026-08-02 18:50:50,352 DEBUG: Mapped 'dtn://alice.dtn/' <-> 'alice' (A-SABR id=0)
+2026-08-02 18:50:50,352 INFO: 4 of 4 requested node(s) mapped successfully.
+2026-08-02 18:50:50,352 DEBUG: Connected to uD3TN, awaiting WELCOME message...
+2026-08-02 18:50:50,352 DEBUG: WELCOME message received! ~ EID = dtn://bob.dtn/
+2026-08-02 18:50:50,352 DEBUG: Sending CONFIGURE message ~ agent ID = False, subscribe = True, auth = 2...
+2026-08-02 18:50:50,353 DEBUG: Request confirmed!
+2026-08-02 18:50:50,353 INFO: Registered as BDM with µD3TN (secret: 95dc76d4-6fd1-49f8-b5d9-18d42d0c6bc9).
+2026-08-02 18:50:50,353 DEBUG: Connected to uD3TN, awaiting WELCOME message...
+2026-08-02 18:50:50,353 DEBUG: WELCOME message received! ~ EID = dtn://bob.dtn/
+2026-08-02 18:50:50,353 DEBUG: Sending CONFIGURE message ~ agent ID = False, subscribe = False, auth = 1...
+2026-08-02 18:50:50,353 DEBUG: Request confirmed!
+2026-08-02 18:50:50,354 INFO: Local node EID: 'dtn://bob.dtn/'. Listening for dispatch events.
+2026-08-02 18:50:50,354 INFO: Link UP: dtn://hardy.dtn/ via csp:2

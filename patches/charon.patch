@@ -1,8 +1,8 @@
 diff --git a/src/aap2_client.c b/src/aap2_client.c
-index 72f7bd9..751b5bc 100644
+index 263e7b5..aea3790 100644
 --- a/src/aap2_client.c
 +++ b/src/aap2_client.c
-@@ -322,6 +322,12 @@ int handle_aap2_response(uint8_t *message, uint64_t msg_size) {
+@@ -318,6 +318,12 @@ int handle_aap2_response(uint8_t *message, uint64_t msg_size) {
    Aap2__AAPResponse *aap2_response =
        aap2__aapresponse__unpack(NULL, msg_size, message);
  
@@ -12,19 +12,17 @@ index 72f7bd9..751b5bc 100644
 +    return -1;
 +  }
 +
-   log_info("%i", aap2_response->response_status);
- 
    switch (aap2_response->response_status) {
-@@ -416,11 +422,39 @@ int send_aap2(aap2_client *client, const char *dst_eid, uint8_t *payload,
+   case AAP2__RESPONSE_STATUS__RESPONSE_STATUS_UNSPECIFIED:
+     log_error("Unspecified response status");
+@@ -409,9 +415,38 @@ int send_aap2(aap2_client *client, const char *dst_eid, uint8_t *payload,
      return -1;
    }
  
--  log_info("Configuration sent !");
 +  log_info("Bundle sent !");
    free(buf);
    free(eid);
  
--  return -1;
 +  /* Wait up to 5 s for the ACK.  In BDM mode the ACK only arrives after
 +   * asabr_bdm dispatches the bundle, so this can take a moment. */
 +  struct timeval tv = { .tv_sec = 5, .tv_usec = 0 };
@@ -53,25 +51,11 @@ index 72f7bd9..751b5bc 100644
 +    return -1;
 +  }
 +
-+  return 0;
+   return 0;
  }
  
- int send_response_status(aap2_client *client) {
-diff --git a/src/charon.c b/src/charon.c
-index 9ed34b1..e7265f5 100644
---- a/src/charon.c
-+++ b/src/charon.c
-@@ -117,6 +117,8 @@ void *_charon_listen_tun(void *arg) {
-         }
-         log_error("read() failed: %s, net_fd : %i", strerror(errno));
-       }
-+      if (nread < 1 || (net_buf[0] >> 4) != 4)
-+        continue; /* drop non-IPv4 (e.g. IPv6 NDP) */
-       charon_forward_packet(tunnel, config, net_buf, nread);
-     }
-   }
 diff --git a/src/config.c b/src/config.c
-index 41933cc..3bca741 100644
+index f4f41d2..81f5be8 100644
 --- a/src/config.c
 +++ b/src/config.c
 @@ -23,6 +23,8 @@ static int handler(void *user, const char *section, const char *name,
@@ -83,7 +67,7 @@ index 41933cc..3bca741 100644
      } else {
        return 0; /* unknown name */
      }
-@@ -41,6 +43,12 @@ static int handler(void *user, const char *section, const char *name,
+@@ -43,6 +45,12 @@ static int handler(void *user, const char *section, const char *name,
        } else {
          return 0;
        }
@@ -94,13 +78,13 @@ index 41933cc..3bca741 100644
 +    } else if (strcmp(name, "mtu") == 0) {
 +      pconfig->mtu = atoi(value);
      }
-   } else {
-     return 0; /* unknown section */
-@@ -50,12 +58,14 @@ static int handler(void *user, const char *section, const char *name,
+   } else if (strcmp(section, "csp") == 0) {
+     if (strcmp(name, "port") == 0) {
+@@ -70,12 +78,14 @@ static int handler(void *user, const char *section, const char *name,
  
  charon_config *read_config(const char *filename) {
    charon_config *config = calloc(1, sizeof(charon_config));
--  
+-
 +  memset(config, 0, sizeof(charon_config));
    if (ini_parse(filename, handler, config) < 0) {
      log_error("Failed to read config file '%s'", filename);
@@ -109,10 +93,10 @@ index 41933cc..3bca741 100644
    }
 +  if (!config->tun_name)
 +    config->tun_name = strdup("tun0");
-   if(config->interface_type == IP) {
- 		  log_info("using IP mode with %s and MTU = %i", config->address, config->mtu);
-   } else if(config->interface_type == CAN) {
-@@ -72,5 +82,6 @@ void free_config(charon_config *config) {
+   if (config->interface_type == IP) {
+     log_info("using IP mode with %s and MTU = %i", config->address,
+              config->mtu);
+@@ -93,5 +103,6 @@ void free_config(charon_config *config) {
    free(config->remote_eid);
    free(config->secret_name);
    free(config->address);
@@ -120,10 +104,10 @@ index 41933cc..3bca741 100644
    free(config);
  }
 diff --git a/src/config.h b/src/config.h
-index 999aba2..e60ca4b 100644
+index bf6be97..852d5cd 100644
 --- a/src/config.h
 +++ b/src/config.h
-@@ -14,6 +14,7 @@ typedef struct {
+@@ -20,6 +20,7 @@ typedef struct {
    char *remote_eid;
    // ip
    char *address;
@@ -158,3 +142,16 @@ index 5a16e7c..f349616 100644
    return fd;
  }
  
+diff --git a/src/tunnel.c b/src/tunnel.c
+index bc191a1..06a869f 100644
+--- a/src/tunnel.c
++++ b/src/tunnel.c
+@@ -119,6 +119,8 @@ void *_charon_listen_tun(void *arg) {
+         }
+         log_error("read() failed: %s, net_fd : %i", strerror(errno));
+       }
++      if (nread < 1 || (net_buf[0] >> 4) != 4)
++        continue; /* drop non-IPv4 (e.g. IPv6 NDP) */
+       charon_forward_packet(tunnel, config, net_buf, nread);
+     }
+   }

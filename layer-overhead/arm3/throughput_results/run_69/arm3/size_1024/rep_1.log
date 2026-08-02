@@ -1,0 +1,15 @@
+listening on :4000  (will print stats after 10 packets)
+RECV seq=1 latency=10.801ms size=1024
+RECV seq=2 latency=101.854ms size=1024
+RECV seq=3 latency=203.739ms size=1024
+RECV seq=4 latency=305.978ms size=1024
+RECV seq=5 latency=407.444ms size=1024
+RECV seq=6 latency=509.578ms size=1024
+RECV seq=7 latency=611.165ms size=1024
+RECV seq=8 latency=713.451ms size=1024
+RECV seq=9 latency=805.283ms size=1024
+RECV seq=10 latency=907.316ms size=1024
+
+--- measurement summary ---
+received : 10 / 10  (100.0% delivery rate)
+latency  : min=10.801 ms  mean=457.661 ms  max=907.316 ms  stddev=288.272 ms

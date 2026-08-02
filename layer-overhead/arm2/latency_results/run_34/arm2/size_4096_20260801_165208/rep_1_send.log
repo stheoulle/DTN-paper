@@ -1,0 +1,4 @@
+sending 1 bundle(s) to dtn://node-b.dtn/bench-4096-1 size=4096 bytes interval=0 ms
+assigned agent secret: f804f84e-3507-4c4d-96d1-fb5f6791c42e
+send_adu duration=0.034 ms
+SEND seq=1 size=4096

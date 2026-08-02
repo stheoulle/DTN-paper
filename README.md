@@ -59,8 +59,9 @@ This must be run **before** building any component. It patches charon, cspcl, ha
 | Repo | Changes |
 |------|---------|
 | `charon` | Configurable TUN name, `/30` prefix, IPv6 disable, IPv4-only filter, ACK wait in `send_aap2` |
-| `cspcl` | Separate RDP connect timeout (100 ms), always-invalidate connection pool after send |
-| `hardy` | `eid_map` / `reverse_eid_map` so A-SABR can route to `dtn://` EIDs, not just IPN |
+| `cspcl` | Generic libcsp path in `ud3tn-integration/dev.patch`; Rust bindings crate bumped to 0.6.2 with a no-op `async-tokio` feature (so hardy's `cspcl-bindings = ">=0.6.1, features=[async-tokio]"` resolves to this local crate instead of the stale, pre-RDP crates.io `cspcl`); stable-Rust fix for `CspAddress::try_from` |
+| `hardy` (`hardy.patch`, applied on `feat/cspcl-v2` before switching branches) | `eid_map` / `reverse_eid_map` so A-SABR can route to `dtn://` EIDs, not just IPN |
+| `hardy` (`hardy-rdp-v2.patch`, applied after `git checkout feat/rdp-v2`) | `[patch.crates-io]` cspcl paths repointed from a personal `cspcl-pool-management` checkout to this repo's `cspcl/`; `cspcl/src/{lib.rs,transport.rs}` adapted to the local `cspcl` crate's current API (`CspAddress`-based `send_bundle`, synchronous `inbound()`) |
 | `ud3tn` | CSP CLA registration, libcsp include/link paths, new `cla_csp` and `cspcl` source files |
 
 ## Step 4 — Build (in dependency order)
@@ -79,7 +80,7 @@ cd ..
 
 ```bash
 cd cspcl
-git checkout feat/improve-rust-bindings
+git checkout main
 mkdir build && cd build
 cmake -DCSP_REPO_DIR=../../libcsp/ .. && make
 cd ../..
@@ -100,7 +101,8 @@ cd ../..
 
 ```bash
 cd hardy
-git checkout feat/rdp
+git checkout feat/rdp-v2
+git apply ../patches/hardy-rdp-v2.patch
 sudo pacman -S clang bzip2
 CSP_REPO_DIR=$(pwd)/../libcsp CSP_BUILD_DIR=$(pwd)/../libcsp/build \
   cargo build --release -p hardy-bpa-server --features cspcl
@@ -122,7 +124,7 @@ cd ..
 cd charon
 make proto
 mkdir -p build
-make
+make CSP_REPO_DIR=$(pwd)/../libcsp
 cd ..
 # binary: build/charon
 ```
